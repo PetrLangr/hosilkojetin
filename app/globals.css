@@ -1,26 +1,81 @@
 @import "tailwindcss";
 
+/* HŠL Theme - Hospodská Šipková Liga */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0F172A;
+
+  --primary: #BE123C;
+  --primary-foreground: #ffffff;
+
+  --accent: #065F46;
+  --accent-foreground: #ffffff;
+
+  --muted: #F8FAFC;
+  --muted-foreground: #475569;
+
+  --card: #ffffff;
+  --card-foreground: #0F172A;
+
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #BE123C;
+
+  --success: #16A34A;
+  --warning: #EA580C;
+  --destructive: #DC2626;
+
+  --secondary: #F8FAFC;
+  --secondary-foreground: #475569;
+
+  --popover: #ffffff;
+  --popover-foreground: #0F172A;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+}
+
+/* HŠL Custom Styles */
+.card-shadow {
+  box-shadow: 0 6px 24px rgba(2, 6, 23, 0.06);
+}
+
+.score-pill {
+  @apply px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-medium;
+}
+
+.team-logo {
+  @apply size-8 rounded-full bg-rose-100 text-rose-700 grid place-items-center font-semibold text-xs;
+}
+
+.dart-ring {
+  @apply w-32 h-32 rounded-full border-4 border-primary/20 absolute;
 }
