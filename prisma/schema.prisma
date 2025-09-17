@@ -98,19 +98,20 @@ model Team {
 }
 
 model Player {
-  id        String   @id @default(cuid())
-  name      String
-  nickname  String?
-  photoUrl  String?
-  role      String   // kapitán, hráč, náhradník
-  teamId    String
-  team      Team     @relation(fields: [teamId], references: [id])
-  captainOf Team[]   @relation("CaptainOf")
-  stats     PlayerStats[]
-  gameEvents GameEvent[]
-  user      User?    // Connection to auth user
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(cuid())
+  name        String
+  nickname    String?
+  photoUrl    String?
+  dateOfBirth DateTime?
+  role        String    // kapitán, hráč, náhradník
+  teamId      String
+  team        Team      @relation(fields: [teamId], references: [id])
+  captainOf   Team[]    @relation("CaptainOf")
+  stats       PlayerStats[]
+  gameEvents  GameEvent[]
+  user        User?     // Connection to auth user
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Match {

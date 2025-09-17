@@ -1,134 +1,18 @@
 import { PrismaClient } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
 
-const teams = [
-  {
-    "name": "AK Kojetín",
-    "shortName": "AKK",
-    "city": "Kojetín",
-    "logoUrl": null
-  },
-  {
-    "name": "Bochořský koblihy",
-    "shortName": "BOK", 
-    "city": "Bochoř",
-    "logoUrl": null
-  },
-  {
-    "name": "Cech křivé šipky",
-    "shortName": "CKŠ",
-    "city": "",
-    "logoUrl": null
-  },
-  {
-    "name": "DC Kraken Dřínov",
-    "shortName": "DKD",
-    "city": "Dřínov",
-    "logoUrl": null
-  },
-  {
-    "name": "DC Stop Chropyně",
-    "shortName": "DSC",
-    "city": "Chropyně",
-    "logoUrl": null
-  },
-  {
-    "name": "Dark Horse Moštárna",
-    "shortName": "DHM",
-    "city": "",
-    "logoUrl": null
-  },
-  {
-    "name": "Draci Počenice",
-    "shortName": "DRP",
-    "city": "Počenice",
-    "logoUrl": null
-  },
-  {
-    "name": "Hospoda Kanada",
-    "shortName": "HKA",
-    "city": "",
-    "logoUrl": null
-  },
-  {
-    "name": "Kohouti Ludslavice",
-    "shortName": "KHL",
-    "city": "Ludslavice",
-    "logoUrl": null
-  },
-  {
-    "name": "Rychlí šneci Vlkoš",
-    "shortName": "RSV",
-    "city": "Vlkoš",
-    "logoUrl": null
-  },
-  {
-    "name": "Stoned Lobo Ponies",
-    "shortName": "SLP",
-    "city": "",
-    "logoUrl": null
-  },
-  {
-    "name": "ŠK Pivní psi Chropyně",
-    "shortName": "SPP",
-    "city": "Chropyně",
-    "logoUrl": null
-  }
-];
-
-const players = [
-  { "name": "Dohnal Michal", "dob": "1974-09-04", "team": "Rychlí šneci Vlkoš" },
-  { "name": "Vaculík Tomáš", "dob": "1997-01-13", "team": "Rychlí šneci Vlkoš" },
-  { "name": "Vlček Jiří", "dob": "2000-11-05", "team": "Rychlí šneci Vlkoš" },
-  { "name": "Opletal Vít", "dob": "1993-08-13", "team": "Rychlí šneci Vlkoš" },
-  { "name": "Prokeš Jaroslav", "dob": "1962-05-03", "team": "Rychlí šneci Vlkoš" },
-  { "name": "Opletal Milan", "dob": "1986-04-20", "team": "Rychlí šneci Vlkoš" },
-  { "name": "Ludvík Stanislav", "dob": "1979-11-02", "team": "Rychlí šneci Vlkoš" },
-  { "name": "Kroupa Radek", "dob": "1975-04-02", "team": "DC Stop Chropyně" },
-  { "name": "Kroupa Filip", "dob": "2005-04-04", "team": "DC Stop Chropyně" },
-  { "name": "Langr Petr", "dob": "2000-11-01", "team": "DC Stop Chropyně" },
-  { "name": "Langr David", "dob": "1995-07-31", "team": "DC Stop Chropyně" },
-  { "name": "Ferenc Michal", "dob": "1971-05-12", "team": "DC Stop Chropyně" },
-  { "name": "Horák Stanislav", "dob": "1978-11-19", "team": "DC Stop Chropyně" },
-  { "name": "Topič Jakub", "dob": "1986-04-18", "team": "DC Stop Chropyně" },
-  { "name": "Navrátil Tomáš", "dob": "1989-06-10", "team": "DC Stop Chropyně" },
-  { "name": "Vítík Adam", "dob": "2007-04-08", "team": "ŠK Pivní psi Chropyně" },
-  { "name": "Bosák Michal", "dob": "1981-09-09", "team": "ŠK Pivní psi Chropyně" },
-  { "name": "Novák Milan", "dob": "1996-12-09", "team": "ŠK Pivní psi Chropyně" },
-  { "name": "Raška Jaroslav", "dob": "1997-08-08", "team": "ŠK Pivní psi Chropyně" },
-  { "name": "Vítík Richard", "dob": "1989-10-28", "team": "ŠK Pivní psi Chropyně" },
-  { "name": "Černošek Ondřej", "dob": "1992-06-17", "team": "ŠK Pivní psi Chropyně" },
-  { "name": "Pavelka Marek", "dob": "1985-03-10", "team": "ŠK Pivní psi Chropyně" },
-  { "name": "Miklik Miroslav", "dob": "1981-11-30", "team": "Bochořský koblihy" },
-  { "name": "Szabo Štefan", "dob": "1979-05-23", "team": "Bochořský koblihy" },
-  { "name": "Kozák Zdeněk senior", "dob": "1970-02-19", "team": "Bochořský koblihy" },
-  { "name": "Macháček Vladimír", "dob": "1965-01-22", "team": "Bochořský koblihy" },
-  { "name": "Matula Libor", "dob": "1966-11-23", "team": "Bochořský koblihy" },
-  { "name": "Horák Jaromír", "dob": "1968-01-21", "team": "Bochořský koblihy" },
-  { "name": "Kozák Zdeněk junior", "dob": "2024-06-26", "team": "Bochořský koblihy" },
-  { "name": "Zatloukal Pavel", "dob": "1989-12-02", "team": "Bochořský koblihy" },
-  { "name": "Richter Jan", "dob": "1986-02-17", "team": "Bochořský koblihy" },
-  { "name": "Ošťádal Michal", "dob": "1971-01-26", "team": "Cech křivé šipky" },
-  { "name": "Ošťádal Pavel", "dob": "1963-06-16", "team": "Cech křivé šipky" },
-  { "name": "Ošťádal Radovan", "dob": "1968-05-10", "team": "Cech křivé šipky" },
-  { "name": "Sázel David", "dob": "1992-03-09", "team": "Cech křivé šipky" },
-  { "name": "Kapl Tomáš", "dob": "1993-09-12", "team": "Cech křivé šipky" },
-  { "name": "Kučera Patrik", "dob": "1999-08-09", "team": "Hospoda Kanada" },
-  { "name": "Okura Denis", "dob": "1993-04-07", "team": "Hospoda Kanada" },
-  { "name": "Kubíček Patrik", "dob": "1998-09-22", "team": "Hospoda Kanada" },
-  { "name": "Andres René", "dob": "1982-02-10", "team": "Hospoda Kanada" },
-  { "name": "Galatik Michal", "dob": "1980-12-19", "team": "Hospoda Kanada" },
-  { "name": "Lužík Pavel", "dob": "1982-05-30", "team": "Hospoda Kanada" },
-  { "name": "Dohnal Vladimír", "dob": "1973-03-04", "team": "Kohouti Ludslavice" },
-  { "name": "Dobrovolný Vratislav", "dob": "1969-10-10", "team": "Kohouti Ludslavice" },
-  { "name": "Záhorovská Zdenka", "dob": "1955-08-28", "team": "Kohouti Ludslavice" }
-];
+// Load data from JSON files
+const teamsData = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../teams.json'), 'utf8'));
+const playersData = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../players (1).json'), 'utf8'));
+const fixturesData = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../fixtures.json'), 'utf8'));
 
 async function main() {
   console.log('Seeding database...');
 
-  // Check if season already exists
+  // Create season if it doesn't exist
   let season = await prisma.season.findFirst({
     where: { name: '2024/2025' }
   });
@@ -149,7 +33,7 @@ async function main() {
 
   // Create teams if they don't exist
   const teamMap = new Map();
-  for (const teamData of teams) {
+  for (const teamData of teamsData) {
     let team = await prisma.team.findFirst({
       where: { 
         name: teamData.name,
@@ -160,7 +44,10 @@ async function main() {
     if (!team) {
       team = await prisma.team.create({
         data: {
-          ...teamData,
+          name: teamData.name,
+          shortName: teamData.shortName,
+          city: teamData.city || '',
+          logoUrl: teamData.logoUrl,
           seasonId: season.id,
         },
       });
@@ -172,11 +59,25 @@ async function main() {
     teamMap.set(teamData.name, team.id);
   }
 
-  // Create players
-  for (const playerData of players) {
-    const teamId = teamMap.get(playerData.team);
+  // Create players with all data including dates of birth
+  for (const playerData of playersData) {
+    // Handle team name variations
+    let teamName = playerData.team;
+    
+    // Fix team name mismatches
+    if (teamName === 'SK Pivní psi Chropyně') {
+      teamName = 'ŠK Pivní psi Chropyně';
+    }
+    if (teamName === 'Češi křivé šipky') {
+      teamName = 'Cech křivé šipky';
+    }
+    if (teamName === 'Hospodka Kanada') {
+      teamName = 'Hospoda Kanada';
+    }
+
+    const teamId = teamMap.get(teamName);
     if (!teamId) {
-      console.log('Team not found for player:', playerData.name, 'team:', playerData.team);
+      console.log('Team not found for player:', playerData.name, 'team:', teamName);
       continue;
     }
 
@@ -188,9 +89,20 @@ async function main() {
     });
 
     if (!existingPlayer) {
+      // Parse date of birth
+      let dateOfBirth = null;
+      if (playerData.dob) {
+        try {
+          dateOfBirth = new Date(playerData.dob);
+        } catch (error) {
+          console.log('Invalid date for player:', playerData.name, 'dob:', playerData.dob);
+        }
+      }
+
       const player = await prisma.player.create({
         data: {
           name: playerData.name,
+          dateOfBirth: dateOfBirth,
           teamId: teamId,
           role: 'hráč'
         },
@@ -204,13 +116,84 @@ async function main() {
         },
       });
 
-      console.log('Created player:', player.name, 'for team:', playerData.team);
+      console.log('Created player:', player.name, 'for team:', teamName, dateOfBirth ? `(born: ${dateOfBirth.toISOString().split('T')[0]})` : '');
     } else {
-      console.log('Player already exists:', playerData.name);
+      // Update existing player with missing dateOfBirth if needed
+      if (playerData.dob && !existingPlayer.dateOfBirth) {
+        try {
+          const dateOfBirth = new Date(playerData.dob);
+          await prisma.player.update({
+            where: { id: existingPlayer.id },
+            data: { dateOfBirth: dateOfBirth }
+          });
+          console.log('Updated player date of birth:', existingPlayer.name);
+        } catch (error) {
+          console.log('Invalid date for existing player:', existingPlayer.name, 'dob:', playerData.dob);
+        }
+      } else {
+        console.log('Player already exists:', playerData.name);
+      }
+    }
+  }
+
+  // Create fixtures/matches
+  for (const fixtureData of fixturesData) {
+    const homeTeamId = teamMap.get(fixtureData.homeTeam);
+    const awayTeamId = teamMap.get(fixtureData.awayTeam);
+
+    if (!homeTeamId || !awayTeamId) {
+      console.log('Teams not found for fixture:', fixtureData.homeTeam, 'vs', fixtureData.awayTeam);
+      continue;
+    }
+
+    const existingMatch = await prisma.match.findFirst({
+      where: {
+        seasonId: season.id,
+        homeTeamId: homeTeamId,
+        awayTeamId: awayTeamId,
+        round: fixtureData.round
+      }
+    });
+
+    if (!existingMatch) {
+      const startTime = new Date(fixtureData.datetime);
+      
+      const match = await prisma.match.create({
+        data: {
+          seasonId: season.id,
+          homeTeamId: homeTeamId,
+          awayTeamId: awayTeamId,
+          round: fixtureData.round,
+          startTime: startTime,
+        },
+      });
+
+      console.log(`Created match: Round ${fixtureData.round} - ${fixtureData.homeTeam} vs ${fixtureData.awayTeam}`);
+    } else {
+      console.log(`Match already exists: Round ${fixtureData.round} - ${fixtureData.homeTeam} vs ${fixtureData.awayTeam}`);
     }
   }
 
   console.log('Database seeded successfully!');
+  
+  // Print summary statistics
+  const teamCount = await prisma.team.count({ where: { seasonId: season.id } });
+  const playerCount = await prisma.player.count({ 
+    where: { team: { seasonId: season.id } }
+  });
+  const matchCount = await prisma.match.count({ where: { seasonId: season.id } });
+  const playersWithDob = await prisma.player.count({
+    where: { 
+      team: { seasonId: season.id },
+      dateOfBirth: { not: null }
+    }
+  });
+
+  console.log('\n=== SEEDING SUMMARY ===');
+  console.log(`Teams: ${teamCount}`);
+  console.log(`Players: ${playerCount} (${playersWithDob} with date of birth)`);
+  console.log(`Matches: ${matchCount}`);
+  console.log('======================\n');
 }
 
 main()
