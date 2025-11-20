@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   title: "HŠL - Hospodská Šipková Liga",
   description: "Hospodská Šipková Liga - správa týmů, hráčů a zápasů",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/logo_hsl.svg",
+    apple: "/logo_hsl.svg",
+  },
 };
 
 export default function RootLayout({

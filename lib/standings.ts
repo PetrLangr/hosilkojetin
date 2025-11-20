@@ -44,12 +44,20 @@ export function calculateStandings(teams: any[], matches: any[]): TeamRecord[] {
   matches.filter(match => match.endTime && match.result).forEach(match => {
     const homeTeam = standings.get(match.homeTeamId);
     const awayTeam = standings.get(match.awayTeamId);
-    
+
     if (!homeTeam || !awayTeam || !match.result) return;
 
     const result = match.result as any;
-    const homeLegs = result.homeLegs || 0;
-    const awayLegs = result.awayLegs || 0;
+
+    // Get games won and legs from result structure
+    // Support multiple formats:
+    // - Quick result: homeWins/awayWins, homeLegs/awayLegs
+    // - Detailed old format: homeScore/awayScore
+    // - Detailed new format: homeGamesWon/awayGamesWon
+    const homeGamesWon = result.homeWins ?? result.homeGamesWon ?? result.homeScore ?? 0;
+    const awayGamesWon = result.awayWins ?? result.awayGamesWon ?? result.awayScore ?? 0;
+    const homeLegs = result.homeLegs ?? result.homeLegsTotal ?? result.homeLegsWon ?? 0;
+    const awayLegs = result.awayLegs ?? result.awayLegsTotal ?? result.awayLegsWon ?? 0;
     
     // Update games played
     homeTeam.played++;
@@ -66,39 +74,56 @@ export function calculateStandings(teams: any[], matches: any[]): TeamRecord[] {
     awayTeam.legDifference = awayTeam.legsFor - awayTeam.legsAgainst;
     
     // Determine match result and assign points according to HŠL rules
-    // V=3, VP=2, PP=1, P=0
-    const legDifference = homeLegs - awayLegs;
-    
-    if (legDifference > 1) {
-      // Home team wins clearly (V=3)
-      homeTeam.won++;
-      homeTeam.points += 3;
-      awayTeam.lost++;
-      homeTeam.form.unshift('W');
-      awayTeam.form.unshift('L');
-    } else if (legDifference === 1) {
-      // Home team wins on penalty (VP=2, PP=1)
-      homeTeam.wonPenalty++;
-      homeTeam.points += 2;
-      awayTeam.lostPenalty++;
-      awayTeam.points += 1;
-      homeTeam.form.unshift('WP');
-      awayTeam.form.unshift('LP');
-    } else if (legDifference === -1) {
-      // Away team wins on penalty (VP=2, PP=1)
-      awayTeam.wonPenalty++;
-      awayTeam.points += 2;
-      homeTeam.lostPenalty++;
-      homeTeam.points += 1;
-      homeTeam.form.unshift('LP');
-      awayTeam.form.unshift('WP');
-    } else if (legDifference < -1) {
-      // Away team wins clearly (V=3)
-      awayTeam.won++;
-      awayTeam.points += 3;
-      homeTeam.lost++;
-      homeTeam.form.unshift('L');
-      awayTeam.form.unshift('W');
+    // HŠL Points System:
+    // V=3 (win with > 8 games)
+    // VP=2 (win after 17th game when tied 8-8)
+    // PP=1 (loss after 17th game when tied 8-8)
+    // P=0 (loss with < 8 games)
+
+    // Check if this was decided in game 17 (tiebreaker)
+    const wasTiebreaker = (homeGamesWon === 9 && awayGamesWon === 8) ||
+                         (homeGamesWon === 8 && awayGamesWon === 9);
+
+    if (wasTiebreaker) {
+      // Match was decided by 17th game (701 DO)
+      // Winner gets VP=2, loser gets PP=1
+      if (homeGamesWon > awayGamesWon) {
+        homeTeam.wonPenalty++;
+        homeTeam.points += 2;
+        awayTeam.lostPenalty++;
+        awayTeam.points += 1;
+        homeTeam.form.unshift('WP');
+        awayTeam.form.unshift('LP');
+      } else {
+        awayTeam.wonPenalty++;
+        awayTeam.points += 2;
+        homeTeam.lostPenalty++;
+        homeTeam.points += 1;
+        homeTeam.form.unshift('LP');
+        awayTeam.form.unshift('WP');
+      }
+    } else {
+      // Regular win/loss (not through tiebreaker)
+      if (homeGamesWon > awayGamesWon) {
+        // Home team wins (V=3)
+        homeTeam.won++;
+        homeTeam.points += 3;
+        awayTeam.lost++;
+        homeTeam.form.unshift('W');
+        awayTeam.form.unshift('L');
+      } else if (awayGamesWon > homeGamesWon) {
+        // Away team wins (V=3)
+        awayTeam.won++;
+        awayTeam.points += 3;
+        homeTeam.lost++;
+        homeTeam.form.unshift('L');
+        awayTeam.form.unshift('W');
+      } else {
+        // This shouldn't happen in HŠL (games must have a winner)
+        // But handle edge case where both teams have equal games
+        // This could be incomplete match data
+        console.warn(`Match ${match.id} has equal games won (${homeGamesWon}-${awayGamesWon}), which shouldn't happen`);
+      }
     }
     
     // Keep only last 5 form results

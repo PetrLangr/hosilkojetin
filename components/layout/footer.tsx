@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Target, Mail, MapPin, Phone, Facebook, Instagram, Youtube } from "lucide-react";
+import { Mail, MapPin, Phone, Facebook, Instagram, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -28,9 +28,7 @@ export function Footer() {
           {/* Brand Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="size-12 rounded-xl bg-white/20 backdrop-blur-sm grid place-items-center">
-                <Target className="h-6 w-6 text-white" />
-              </div>
+              <img src="/logo_hsl.svg" alt="HŠL" className="h-14 w-auto brightness-0 invert" />
               <div>
                 <h3 className="text-2xl font-black text-white">HŠL</h3>
                 <p className="text-white/80 text-sm font-semibold">Hospodská Šipková Liga</p>

@@ -2,14 +2,18 @@
 
 import { useState, useEffect, use } from 'react';
 import { useSession } from 'next-auth/react';
-import { notFound, redirect } from 'next/navigation';
-import { MatchWizard } from '@/components/match/match-wizard';
+import { notFound, redirect, useRouter } from 'next/navigation';
+import { SinglePageScorecard } from '@/components/match/single-page-scorecard';
 import { PinAccess } from '@/components/match/pin-access';
+import { PublicMatchView } from '@/components/match/public-match-view';
+import { ResultModeSelector } from '@/components/match/result-mode-selector';
+import { QuickResultEntry, QuickResultData } from '@/components/match/quick-result-entry';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Shield, Lock, User, Target } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 
 interface MatchPageProps {
@@ -18,21 +22,25 @@ interface MatchPageProps {
 
 export default function MatchPage({ params }: MatchPageProps) {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  const { toast } = useToast();
   const [match, setMatch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [pinAccessGranted, setPinAccessGranted] = useState(false);
-  
+  const [entryMode, setEntryMode] = useState<'select' | 'quick' | 'detailed'>('select');
+
   // Unwrap params using React.use()
   const { id } = use(params);
 
   useEffect(() => {
     async function fetchMatch() {
       try {
-        const response = await fetch(`/api/matches`);
+        const response = await fetch(`/api/matches/${id}`);
         if (response.ok) {
-          const matches = await response.json();
-          const foundMatch = matches.find((m: any) => m.id === id);
-          setMatch(foundMatch);
+          const match = await response.json();
+          setMatch(match);
+        } else {
+          console.error('Match not found');
         }
       } catch (error) {
         console.error('Error fetching match:', error);
@@ -43,6 +51,38 @@ export default function MatchPage({ params }: MatchPageProps) {
 
     fetchMatch();
   }, [id]);
+
+  const handleQuickResultSubmit = async (resultData: QuickResultData) => {
+    try {
+      const response = await fetch(`/api/matches/${id}/quick-result`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(resultData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Nepodařilo se uložit výsledek');
+      }
+
+      toast({
+        title: 'Výsledek uložen',
+        description: 'Rychlý výsledek byl úspěšně uložen a tabulka byla aktualizována.',
+      });
+
+      // Redirect to matches or standings page
+      router.push('/standings');
+    } catch (error) {
+      toast({
+        title: 'Chyba',
+        description: error instanceof Error ? error.message : 'Nepodařilo se uložit výsledek',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
 
   if (loading) {
     return (
@@ -70,18 +110,53 @@ export default function MatchPage({ params }: MatchPageProps) {
     );
   }
 
-  if (!session) {
-    redirect(`/auth/signin?callbackUrl=${encodeURIComponent(`/match/${id}`)}`);
-  }
-
-  // Check access permissions
+  // Check access permissions for editing
   const isAdmin = session?.user?.role === 'admin';
   const isHomeCaptain = session?.user?.role === 'kapitán' && session?.user?.player?.team?.id === match.homeTeamId;
   const isAwayCaptain = session?.user?.role === 'kapitán' && session?.user?.player?.team?.id === match.awayTeamId;
   const isTeamMember = session?.user?.player?.team?.id === match.homeTeamId || session?.user?.player?.team?.id === match.awayTeamId;
-  
+
   const hasDirectAccess = isAdmin || isHomeCaptain || isAwayCaptain;
   const needsPin = isTeamMember && !hasDirectAccess && !pinAccessGranted;
+
+  // Check if match is completed
+  const isMatchCompleted = match.endTime !== null || (match.games && match.games.length > 0);
+  const isQuickResult = match.isQuickResult === true;
+
+  // Check if user can edit (admin or team captain)
+  const canEditMatch = isAdmin || isHomeCaptain || isAwayCaptain;
+
+  // Handle upgrade to detailed mode
+  const handleUpgradeToDetailed = () => {
+    setEntryMode('detailed');
+  };
+
+  // If match is completed and user cannot edit, show public read-only view
+  if (isMatchCompleted && !canEditMatch) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <PublicMatchView match={match} />
+      </div>
+    );
+  }
+
+  // If match is completed, user can edit, show with upgrade option
+  if (isMatchCompleted && canEditMatch && isQuickResult && entryMode === 'select') {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <PublicMatchView
+          match={match}
+          canEdit={true}
+          onUpgradeToDetailed={handleUpgradeToDetailed}
+        />
+      </div>
+    );
+  }
+
+  // For non-completed matches, require authentication
+  if (!session) {
+    redirect(`/auth/signin?callbackUrl=${encodeURIComponent(`/match/${id}`)}`);
+  }
 
   // Show PIN input for team members
   if (needsPin) {
@@ -194,20 +269,69 @@ export default function MatchPage({ params }: MatchPageProps) {
     );
   }
 
+  // Show mode selector for non-completed matches
+  if (entryMode === 'select') {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <ResultModeSelector
+          onModeSelected={(mode) => setEntryMode(mode)}
+          matchInfo={{
+            homeTeam: { name: match.homeTeam.name, shortName: match.homeTeam.shortName },
+            awayTeam: { name: match.awayTeam.name, shortName: match.awayTeam.shortName },
+            round: match.round,
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show quick result entry
+  if (entryMode === 'quick') {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-4">
+          <Button
+            variant="ghost"
+            onClick={() => setEntryMode('select')}
+            className="gap-2"
+          >
+            <Shield className="h-4 w-4" />
+            Zpět na výběr režimu
+          </Button>
+        </div>
+        <QuickResultEntry
+          matchId={id}
+          homeTeam={{
+            id: match.homeTeamId,
+            name: match.homeTeam.name,
+            shortName: match.homeTeam.shortName
+          }}
+          awayTeam={{
+            id: match.awayTeamId,
+            name: match.awayTeam.name,
+            shortName: match.awayTeam.shortName
+          }}
+          onSubmit={handleQuickResultSubmit}
+          onCancel={() => setEntryMode('select')}
+        />
+      </div>
+    );
+  }
+
+  // Show detailed entry (existing SinglePageScorecard)
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="space-y-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {match.homeTeam.name} vs {match.awayTeam.name}
-          </h1>
-          <p className="text-muted-foreground">
-            {match.round}. kolo • {match.startTime ? new Date(match.startTime).toLocaleDateString('cs-CZ') : 'Datum neuvedek'}
-          </p>
-        </div>
-
-        <MatchWizard match={match} />
+      <div className="mb-4">
+        <Button
+          variant="ghost"
+          onClick={() => setEntryMode('select')}
+          className="gap-2"
+        >
+          <Shield className="h-4 w-4" />
+          Zpět na výběr režimu
+        </Button>
       </div>
+      <SinglePageScorecard match={match} />
     </div>
   );
 }

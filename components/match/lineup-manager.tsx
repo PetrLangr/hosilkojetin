@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, UserPlus, ArrowRight } from 'lucide-react';
+import { Users, UserPlus, ArrowRight, RefreshCw } from 'lucide-react';
 import { getTeamLogo } from '@/lib/team-logos';
+import { ImprovedSubstitution } from './improved-substitution';
 
 interface LineupManagerProps {
   match: any;
@@ -34,7 +35,7 @@ export function LineupManager({
     D5: homeLineup[4] || '',
     D6: homeLineup[5] || ''
   });
-  
+
   const [awayPositions, setAwayPositions] = useState<Record<string, string>>({
     H1: awayLineup[0] || '',
     H2: awayLineup[1] || '',
@@ -43,6 +44,10 @@ export function LineupManager({
     H5: awayLineup[4] || '',
     H6: awayLineup[5] || ''
   });
+
+  // Substitution dialog state
+  const [showSubstitution, setShowSubstitution] = useState(false);
+  const [substitutionTeam, setSubstitutionTeam] = useState<'home' | 'away'>('home');
   
   useEffect(() => {
     // Convert positions back to array format for parent component (all 6 positions)
@@ -62,6 +67,48 @@ export function LineupManager({
     } else {
       setAwayPositions(prev => ({ ...prev, [position]: actualPlayerId }));
     }
+  };
+
+  // Quick substitution handler for multiple substitutions
+  const handleQuickSubstitution = (substitutionsList: Array<{ outPlayerId: string; inPlayerId: string }>) => {
+    const positions = substitutionTeam === 'home' ? homePositions : awayPositions;
+    const setPositions = substitutionTeam === 'home' ? setHomePositions : setAwayPositions;
+
+    // Process each substitution
+    substitutionsList.forEach(({ outPlayerId, inPlayerId }) => {
+      // Find the position of the outgoing player and swap
+      const outPosition = Object.keys(positions).find(pos => positions[pos] === outPlayerId);
+      if (outPosition) {
+        // If incoming player is already assigned somewhere, clear that position
+        const inPosition = Object.keys(positions).find(pos => positions[pos] === inPlayerId);
+        if (inPosition) {
+          setPositions(prev => ({ ...prev, [inPosition]: '', [outPosition]: inPlayerId }));
+        } else {
+          setPositions(prev => ({ ...prev, [outPosition]: inPlayerId }));
+        }
+      }
+    });
+  };
+
+  // Get active players and bench for substitution dialog
+  const getTeamData = (team: 'home' | 'away') => {
+    const positions = team === 'home' ? homePositions : awayPositions;
+    const allPlayers = team === 'home' ? match.homeTeam.players : match.awayTeam.players;
+
+    const activePlayers = Object.entries(positions)
+      .filter(([_, playerId]) => playerId)
+      .map(([position, playerId]) => {
+        const player = allPlayers.find((p: any) => p.id === playerId);
+        return player ? { id: playerId, name: player.name, position } : null;
+      })
+      .filter(Boolean);
+
+    const assignedPlayerIds = Object.values(positions).filter(Boolean);
+    const benchPlayers = allPlayers
+      .filter((player: any) => !assignedPlayerIds.includes(player.id))
+      .map((player: any) => ({ id: player.id, name: player.name }));
+
+    return { activePlayers, benchPlayers };
   };
 
   const isLineupComplete = homePositions.D1 && homePositions.D2 && homePositions.D3 && 
@@ -90,6 +137,19 @@ export function LineupManager({
                   3 základní + až 3 náhradní hráče (D1-D6)
                 </p>
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSubstitutionTeam('home');
+                  setShowSubstitution(true);
+                }}
+                className="ml-4"
+                disabled={Object.values(homePositions).filter(Boolean).length < 3}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Rychlé střídání
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -188,6 +248,19 @@ export function LineupManager({
                   3 základní + až 3 náhradní hráče (H1-H6)
                 </p>
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSubstitutionTeam('away');
+                  setShowSubstitution(true);
+                }}
+                className="ml-4"
+                disabled={Object.values(awayPositions).filter(Boolean).length < 3}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Rychlé střídání
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -279,6 +352,17 @@ export function LineupManager({
           <ArrowRight className="h-5 w-5 ml-2" />
         </Button>
       </div>
+
+      {/* Improved Substitution Dialog */}
+      <ImprovedSubstitution
+        open={showSubstitution}
+        onClose={() => setShowSubstitution(false)}
+        team={substitutionTeam}
+        teamName={substitutionTeam === 'home' ? match.homeTeam.name : match.awayTeam.name}
+        activePlayers={getTeamData(substitutionTeam).activePlayers}
+        benchPlayers={getTeamData(substitutionTeam).benchPlayers}
+        onSubstitute={handleQuickSubstitution}
+      />
     </div>
   );
 }

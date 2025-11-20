@@ -127,7 +127,9 @@ model Match {
   startTime  DateTime?
   endTime    DateTime?
   result     Json?    // summary výsledků
+  status     String   @default("scheduled") // scheduled, pending_approval, approved, completed
   round      Int?
+  isQuickResult Boolean @default(false) // true = quick mode (no player stats), false = detailed mode (with player stats)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -152,7 +154,7 @@ model GameEvent {
   game    Game   @relation(fields: [gameId], references: [id])
   playerId String
   player   Player @relation(fields: [playerId], references: [id])
-  type    String // S95, S133, S170, CO3, CO4, CO5, CO6
+  type    String // S95, S133, S170, CO3, CO4, CO5, CO6, Asfalt
   value   Int?
   createdAt DateTime @default(now())
 }
@@ -163,16 +165,35 @@ model PlayerStats {
   player      Player @relation(fields: [playerId], references: [id])
   seasonId    String
   season      Season @relation(fields: [seasonId], references: [id])
+  
+  // Total game statistics (all game types)
+  totalGamesPlayed Int @default(0)
+  totalGamesWon   Int @default(0)
+  
+  // Singles-specific statistics
   singlesPlayed Int @default(0)
   singlesWon   Int @default(0)
+
+  // Leg statistics (only for singles)
+  legsWon      Int @default(0)
+  legsLost     Int @default(0)
+
+  // Performance events (only tracked in singles)
   S95 Int @default(0)
   S133 Int @default(0)
   S170 Int @default(0)
+  Asfalt Int @default(0)  // Complete miss - hitting the wall/space around dartboard (scoring 0)
   CO3 Int @default(0)
   CO4 Int @default(0)
   CO5 Int @default(0)
   CO6 Int @default(0)
-  bpi Float @default(0)
+
+  // Additional statistics (for display only, not used in index calculations)
+  highestCheckout Int @default(0)  // Highest checkout achieved (e.g., 170, 160, etc.)
+
+  // Index calculations
+  hslIndex Float @default(0)      // HSL reliability-weighted index (main ranking)
+  usoIndex Float @default(0)      // Pure UšO index for comparison
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -184,6 +205,7 @@ model Post {
   title       String
   content     String
   excerpt     String?
+  imageUrl    String?  // Featured image for the post
   authorId    String
   author      User     @relation(fields: [authorId], references: [id])
   type        String   @default("news") // news, announcement, tournament, etc.

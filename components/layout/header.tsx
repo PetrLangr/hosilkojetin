@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Menu, Target, User, LogIn, LogOut } from "lucide-react";
 
@@ -19,13 +19,15 @@ export function Header() {
     { name: "Týmy", href: "/teams" },
     { name: "Hráči", href: "/players" },
     { name: "Zápasy", href: "/matches" },
+    { name: "Archiv", href: "/archiv" },
     { name: "Kontakt", href: "/contact" },
   ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-primary/20 bg-gradient-to-r from-primary to-[#9F1239] shadow-lg">
       <div className="container mx-auto px-6 lg:px-8 h-20 flex items-center justify-between">
-        <Link href="/" className="group transition-all">
+        <Link href="/" className="group transition-all flex items-center gap-3">
+          <img src="/logo_hsl.svg" alt="HŠL" className="h-12 w-auto brightness-0 invert" />
           <span className="text-2xl md:text-3xl font-black text-white group-hover:text-white/80 transition-colors tracking-tight">
             HŠL
           </span>
@@ -53,9 +55,9 @@ export function Header() {
             ) : session ? (
               <div className="flex items-center gap-4">
                 <Button variant="outline" asChild className="rounded-xl border-white/30 bg-white/10 text-white hover:bg-white hover:text-primary font-semibold backdrop-blur-sm">
-                  <Link href="/profile">
+                  <Link href={session.user?.role === 'admin' ? '/admin' : '/profile'}>
                     <User className="h-4 w-4 mr-2" />
-                    Profil
+                    {session.user?.role === 'admin' ? 'Admin' : 'Profil'}
                   </Link>
                 </Button>
                 
@@ -95,6 +97,7 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="right">
+            <SheetTitle className="sr-only">Navigace</SheetTitle>
             <nav className="flex flex-col space-y-4 mt-8">
               {navigation.map((item) => (
                 <Link

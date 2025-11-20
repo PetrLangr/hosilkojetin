@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Target, Users, Plus, Minus, CheckCircle, Trophy } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Target, Users, Plus, Minus, CheckCircle, Trophy, ArrowRight, ArrowLeftRight, UserPlus, X } from 'lucide-react';
 import { PlayerStatsInput } from './player-stats-input';
 import { getTeamLogo } from '@/lib/team-logos';
 
@@ -18,8 +19,8 @@ interface GameEditorProps {
   gameResults: Record<number, any>;
   homeTeam: any;
   awayTeam: any;
-  homeLineup: string[]; // [D1, D2, D3] player IDs
-  awayLineup: string[]; // [H1, H2, H3] player IDs
+  homeLineup: string[]; // [D1, D2, D3, D4, D5, D6] player IDs (including substitutes)
+  awayLineup: string[]; // [H1, H2, H3, H4, H5, H6] player IDs (including substitutes)
   events: Record<string, any>;
   onGameComplete: (gameId: number, result: any) => void;
   onGameSelect: (gameId: number) => void;
@@ -40,6 +41,9 @@ export function GameEditor({
   const [selectedHomePlayers, setSelectedHomePlayers] = useState<string[]>([]);
   const [selectedAwayPlayers, setSelectedAwayPlayers] = useState<string[]>([]);
   const [legResults, setLegResults] = useState<any[]>([]);
+  // Simple substitutions: map of playerId -> substituteId
+  const [substitutions, setSubstitutions] = useState<Record<string, string>>({});
+  const [substitutionDialogOpen, setSubstitutionDialogOpen] = useState(false);
 
   const currentGameData = games.find(g => g.id === currentGame);
   const isGameCompleted = gameResults[currentGame];
@@ -48,6 +52,7 @@ export function GameEditor({
     setSelectedHomePlayers([]);
     setSelectedAwayPlayers([]);
     setLegResults([]);
+    setSubstitutions({});
   };
 
   const handleGameSelect = (gameId: number) => {
@@ -64,22 +69,26 @@ export function GameEditor({
     if (!currentGameData) return { home: [], away: [], autoAssigned: true };
 
     // Auto-assign players based on HŠL positions
-    const homePlayerIds = currentGameData.positions.home.map((pos: string) => {
-      const index = pos === 'D1' ? 0 : pos === 'D2' ? 1 : 2;
-      return homeLineup[index];
+    let homePlayerIds = currentGameData.positions.home.map((pos: string) => {
+      const index = parseInt(pos.replace('D', '')) - 1;
+      const originalId = homeLineup[index];
+      // Check if this player has a substitute
+      return substitutions[originalId] || originalId;
     }).filter(Boolean);
 
-    const awayPlayerIds = currentGameData.positions.away.map((pos: string) => {
-      const index = pos === 'H1' ? 0 : pos === 'H2' ? 1 : 2;
-      return awayLineup[index];
+    let awayPlayerIds = currentGameData.positions.away.map((pos: string) => {
+      const index = parseInt(pos.replace('H', '')) - 1;
+      const originalId = awayLineup[index];
+      // Check if this player has a substitute
+      return substitutions[originalId] || originalId;
     }).filter(Boolean);
 
     const homePlayers = homePlayerIds.map(id => homeTeam.players.find((p: any) => p.id === id)).filter(Boolean);
     const awayPlayers = awayPlayerIds.map(id => awayTeam.players.find((p: any) => p.id === id)).filter(Boolean);
 
-    return { 
-      home: homePlayers, 
-      away: awayPlayers, 
+    return {
+      home: homePlayers,
+      away: awayPlayers,
       autoAssigned: true,
       homeIds: homePlayerIds,
       awayIds: awayPlayerIds
@@ -217,7 +226,7 @@ export function GameEditor({
                 <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-100 rounded-t-2xl">
                   <div className="flex items-center gap-3">
                     <div className="size-10 rounded-lg bg-white shadow-sm border border-slate-200 p-1">
-                      <img 
+                      <img
                         src={getTeamLogo(homeTeam.name)}
                         alt={homeTeam.name}
                         className="w-full h-full object-contain"
@@ -254,7 +263,7 @@ export function GameEditor({
                 <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-100 rounded-t-2xl">
                   <div className="flex items-center gap-3">
                     <div className="size-10 rounded-lg bg-white shadow-sm border border-slate-200 p-1">
-                      <img 
+                      <img
                         src={getTeamLogo(awayTeam.name)}
                         alt={awayTeam.name}
                         className="w-full h-full object-contain"
@@ -287,6 +296,198 @@ export function GameEditor({
                 </CardContent>
               </Card>
             </div>
+
+            {/* Substitution for doubles - New clean approach */}
+            {currentGameData && (currentGameData.type === 'double_501' || currentGameData.type === 'double_cricket') &&
+             (homeLineup.slice(3).filter(Boolean).length > 0 || awayLineup.slice(3).filter(Boolean).length > 0) && (
+              <>
+                {/* Substitution Status Banner */}
+                {Object.keys(substitutions).length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <ArrowLeftRight className="h-5 w-5 text-amber-600" />
+                        <div>
+                          <p className="font-bold text-sm text-amber-900">Aktivní střídání</p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {Object.entries(substitutions).map(([originalId, substituteId]) => {
+                              const originalPlayer = [...homeTeam.players, ...awayTeam.players].find((p: any) => p.id === originalId);
+                              const substitutePlayer = [...homeTeam.players, ...awayTeam.players].find((p: any) => p.id === substituteId);
+                              return (
+                                <Badge key={originalId} variant="secondary" className="bg-amber-100 text-amber-800">
+                                  {originalPlayer?.name} → {substitutePlayer?.name}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setSubstitutions({})}
+                        className="text-amber-600 hover:text-amber-700"
+                      >
+                        Zrušit vše
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Substitution Button */}
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSubstitutionDialogOpen(true)}
+                    className="rounded-xl border-2 border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Střídání hráčů
+                  </Button>
+                </div>
+
+                {/* Substitution Dialog */}
+                <Dialog open={substitutionDialogOpen} onOpenChange={setSubstitutionDialogOpen}>
+                  <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Střídání hráčů pro tuto hru</DialogTitle>
+                      <DialogDescription>
+                        Každý hráč může být vystřídán náhradníkem
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-6 py-4">
+                      <div className="grid md:grid-cols-2 gap-6">
+                        {/* Home Team Substitutions */}
+                        <div>
+                          <h4 className="font-bold text-sm mb-3">{homeTeam.name}</h4>
+                          <div className="space-y-3">
+                            {currentGameData.positions.home.map((pos: string, idx: number) => {
+                              const index = parseInt(pos.replace('D', '')) - 1;
+                              const originalPlayerId = homeLineup[index];
+                              const originalPlayer = homeTeam.players.find((p: any) => p.id === originalPlayerId);
+                              const availableSubs = homeLineup.slice(3).filter(Boolean).filter(id =>
+                                !Object.values(substitutions).includes(id) || substitutions[originalPlayerId] === id
+                              );
+
+                              if (!originalPlayer) return null;
+
+                              return (
+                                <div key={pos}>
+                                  <Label className="text-xs text-muted-foreground">Hráč {idx + 1}</Label>
+                                  <Select
+                                    value={substitutions[originalPlayerId] || originalPlayerId}
+                                    onValueChange={(value) => {
+                                      if (value === originalPlayerId) {
+                                        const newSubs = { ...substitutions };
+                                        delete newSubs[originalPlayerId];
+                                        setSubstitutions(newSubs);
+                                      } else {
+                                        setSubstitutions({ ...substitutions, [originalPlayerId]: value });
+                                      }
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue>
+                                        {substitutions[originalPlayerId]
+                                          ? homeTeam.players.find((p: any) => p.id === substitutions[originalPlayerId])?.name
+                                          : originalPlayer.name
+                                        }
+                                      </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value={originalPlayerId}>{originalPlayer.name} (základní)</SelectItem>
+                                      {availableSubs.length > 0 && <Separator className="my-1" />}
+                                      {availableSubs.map(subId => {
+                                        const subPlayer = homeTeam.players.find((p: any) => p.id === subId);
+                                        return (
+                                          <SelectItem key={subId} value={subId}>
+                                            {subPlayer?.name} (náhradník)
+                                          </SelectItem>
+                                        );
+                                      })}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              );
+                            })}
+                            {homeLineup.slice(3).filter(Boolean).length === 0 && (
+                              <p className="text-sm text-muted-foreground italic">Žádní náhradníci k dispozici</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Away Team Substitutions */}
+                        <div>
+                          <h4 className="font-bold text-sm mb-3">{awayTeam.name}</h4>
+                          <div className="space-y-3">
+                            {currentGameData.positions.away.map((pos: string, idx: number) => {
+                              const index = parseInt(pos.replace('H', '')) - 1;
+                              const originalPlayerId = awayLineup[index];
+                              const originalPlayer = awayTeam.players.find((p: any) => p.id === originalPlayerId);
+                              const availableSubs = awayLineup.slice(3).filter(Boolean).filter(id =>
+                                !Object.values(substitutions).includes(id) || substitutions[originalPlayerId] === id
+                              );
+
+                              if (!originalPlayer) return null;
+
+                              return (
+                                <div key={pos}>
+                                  <Label className="text-xs text-muted-foreground">Hráč {idx + 1}</Label>
+                                  <Select
+                                    value={substitutions[originalPlayerId] || originalPlayerId}
+                                    onValueChange={(value) => {
+                                      if (value === originalPlayerId) {
+                                        const newSubs = { ...substitutions };
+                                        delete newSubs[originalPlayerId];
+                                        setSubstitutions(newSubs);
+                                      } else {
+                                        setSubstitutions({ ...substitutions, [originalPlayerId]: value });
+                                      }
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue>
+                                        {substitutions[originalPlayerId]
+                                          ? awayTeam.players.find((p: any) => p.id === substitutions[originalPlayerId])?.name
+                                          : originalPlayer.name
+                                        }
+                                      </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value={originalPlayerId}>{originalPlayer.name} (základní)</SelectItem>
+                                      {availableSubs.length > 0 && <Separator className="my-1" />}
+                                      {availableSubs.map(subId => {
+                                        const subPlayer = awayTeam.players.find((p: any) => p.id === subId);
+                                        return (
+                                          <SelectItem key={subId} value={subId}>
+                                            {subPlayer?.name} (náhradník)
+                                          </SelectItem>
+                                        );
+                                      })}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              );
+                            })}
+                            {awayLineup.slice(3).filter(Boolean).length === 0 && (
+                              <p className="text-sm text-muted-foreground italic">Žádní náhradníci k dispozici</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setSubstitutionDialogOpen(false)}>
+                        Zavřít
+                      </Button>
+                      <Button onClick={() => setSubstitutionDialogOpen(false)} className="bg-primary hover:bg-[#9F1239]">
+                        Potvrdit střídání
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </>
+            )}
 
             {/* Legs/Rounds - Always show for current game */}
             {currentGameData && (

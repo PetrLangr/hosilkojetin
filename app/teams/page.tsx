@@ -11,25 +11,44 @@ import { getTeamLogo, getTeamGradient, getTeamBackgroundGradient } from '@/lib/t
 
 export default function Teams() {
   const [teams, setTeams] = useState<any[]>([]);
+  const [standings, setStandings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchTeams() {
+    async function fetchData() {
       try {
-        const response = await fetch('/api/teams');
-        if (response.ok) {
-          const teamsData = await response.json();
+        const [teamsRes, standingsRes] = await Promise.all([
+          fetch('/api/teams'),
+          fetch('/api/standings')
+        ]);
+
+        if (teamsRes.ok) {
+          const teamsData = await teamsRes.json();
           setTeams(teamsData);
         }
+
+        if (standingsRes.ok) {
+          const standingsData = await standingsRes.json();
+          setStandings(standingsData);
+        }
       } catch (error) {
-        console.error('Error fetching teams:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     }
 
-    fetchTeams();
+    fetchData();
   }, []);
+
+  // Helper to get team points from standings
+  const getTeamPoints = (teamId: string) => {
+    const teamStanding = standings.find((s: any) => s.teamId === teamId);
+    return teamStanding?.points ?? 0;
+  };
+
+  // Sort teams by points
+  const sortedTeams = [...teams].sort((a, b) => getTeamPoints(b.id) - getTeamPoints(a.id));
 
   if (loading) {
     return (
@@ -63,7 +82,7 @@ export default function Teams() {
 
       {/* Teams Grid */}
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {teams.map((team: any, index: number) => (
+        {sortedTeams.map((team: any, index: number) => (
           <Link key={team.id} href={`/team/${team.id}`}>
             <Card className="rounded-2xl bg-white border border-gray-100 card-shadow hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer h-full group overflow-hidden">
               {/* Team Header with Logo */}
@@ -126,22 +145,8 @@ export default function Teams() {
                       <div className="text-xs text-muted-foreground font-semibold uppercase">Hráčů</div>
                     </div>
                     <div className="text-center bg-slate-50 rounded-xl p-3">
-                      <div className="font-black text-2xl text-slate-900">0</div>
+                      <div className="font-black text-2xl text-slate-900">{getTeamPoints(team.id)}</div>
                       <div className="text-xs text-muted-foreground font-semibold uppercase">Bodů</div>
-                    </div>
-                  </div>
-                  
-                  {/* Performance Bar */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-muted-foreground">VÝKONNOST</span>
-                      <span className="text-slate-600">0%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-primary to-accent h-2 rounded-full transition-all duration-500" 
-                        style={{ width: '0%' }}
-                      />
                     </div>
                   </div>
                   

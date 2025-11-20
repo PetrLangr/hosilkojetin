@@ -1,6 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calculateBPI } from '@/lib/bpi';
+import { calculateHSLIndex, calculateUSOIndex } from '@/lib/bpi';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    
+    const match = await prisma.match.findUnique({
+      where: { id },
+      include: {
+        homeTeam: {
+          include: { players: true }
+        },
+        awayTeam: {
+          include: { players: true }
+        },
+        games: {
+          orderBy: { order: 'asc' }
+        },
+        season: true
+      }
+    });
+
+    if (!match) {
+      return NextResponse.json({ error: 'Match not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(match);
+  } catch (error) {
+    console.error('Error fetching match:', error);
+    return NextResponse.json({ error: 'Failed to fetch match' }, { status: 500 });
+  }
+}
 
 export async function PUT(
   request: NextRequest,
@@ -10,13 +44,29 @@ export async function PUT(
   try {
     const { gameResults, matchResult } = await request.json();
 
-    // Update match with results
+    // Update match with results and status
+    // When detailed results are entered, mark as NOT a quick result
     const updatedMatch = await prisma.match.update({
       where: { id },
       data: {
         result: matchResult,
-        endTime: new Date()
+        status: matchResult.status || 'completed',
+        endTime: matchResult.status === 'completed' ? new Date() : null,
+        isQuickResult: false // Detailed entry, so this is not a quick result
       }
+    });
+
+    // Delete existing games and their events for this match before creating new ones
+    await prisma.gameEvent.deleteMany({
+      where: {
+        game: {
+          matchId: id
+        }
+      }
+    });
+
+    await prisma.game.deleteMany({
+      where: { matchId: id }
     });
 
     // Save games and events
@@ -69,50 +119,164 @@ export async function PUT(
 async function updatePlayerStatistics(matchId: string, gameResults: Record<string, any>) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
-    include: { season: true }
+    include: {
+      season: true,
+      games: {
+        include: {
+          events: true
+        }
+      }
+    }
   });
 
   if (!match) return;
 
-  // Aggregate stats for each player
-  const playerStats = new Map();
+  // First, subtract old stats from this match if it was previously saved
+  const oldPlayerStats = new Map();
 
-  Object.values(gameResults).forEach((gameResult: any) => {
-    if (gameResult.type === 'single') {
-      // Count singles played and won
-      [...gameResult.participants.home, ...gameResult.participants.away].forEach((playerId: string) => {
-        if (!playerStats.has(playerId)) {
-          playerStats.set(playerId, {
+  if (match.games && match.games.length > 0) {
+    // Calculate what the old stats were for this match
+    match.games.forEach((game: any) => {
+      // Parse participants if it's stored as JSON string
+      const participants = typeof game.participants === 'string'
+        ? JSON.parse(game.participants)
+        : game.participants;
+
+      const gameParticipants = [
+        ...(participants.home || []),
+        ...(participants.away || [])
+      ];
+
+      gameParticipants.forEach((playerId: string) => {
+        if (!oldPlayerStats.has(playerId)) {
+          oldPlayerStats.set(playerId, {
+            totalGamesPlayed: 0,
+            totalGamesWon: 0,
             singlesPlayed: 0,
             singlesWon: 0,
+            legsWon: 0,
+            legsLost: 0,
             S95: 0,
             S133: 0,
             S170: 0,
+            Asfalt: 0,
             CO3: 0,
             CO4: 0,
             CO5: 0,
-            CO6: 0
+            CO6: 0,
+            highestCheckout: 0
           });
         }
 
-        const stats = playerStats.get(playerId);
+        const stats = oldPlayerStats.get(playerId);
+        stats.totalGamesPlayed += 1;
+
+        const gameResultData = game.result as any;
+        const isHomePlayer = (participants.home || []).includes(playerId);
+
+        if ((isHomePlayer && gameResultData?.winner === 'home') ||
+            (!isHomePlayer && gameResultData?.winner === 'away')) {
+          stats.totalGamesWon += 1;
+        }
+
+        if (game.type === 'single') {
+          stats.singlesPlayed += 1;
+
+          if ((isHomePlayer && gameResultData?.winner === 'home') ||
+              (!isHomePlayer && gameResultData?.winner === 'away')) {
+            stats.singlesWon += 1;
+          }
+
+          // Count old events
+          game.events.forEach((event: any) => {
+            if (event.playerId === playerId) {
+              stats[event.type] = (stats[event.type] || 0) + 1;
+            }
+          });
+
+          // Track old legs
+          if (gameResultData?.homeScore !== undefined && gameResultData?.awayScore !== undefined) {
+            if (isHomePlayer) {
+              stats.legsWon += gameResultData.homeScore || 0;
+              stats.legsLost += gameResultData.awayScore || 0;
+            } else {
+              stats.legsWon += gameResultData.awayScore || 0;
+              stats.legsLost += gameResultData.homeScore || 0;
+            }
+          }
+        }
+      });
+    });
+  }
+
+  // Aggregate NEW stats for each player
+  const playerStats = new Map();
+
+  Object.values(gameResults).forEach((gameResult: any) => {
+    // Count all game types for total statistics
+    [...gameResult.participants.home, ...gameResult.participants.away].forEach((playerId: string) => {
+      if (!playerStats.has(playerId)) {
+        playerStats.set(playerId, {
+          totalGamesPlayed: 0,
+          totalGamesWon: 0,
+          singlesPlayed: 0,
+          singlesWon: 0,
+          legsWon: 0,
+          legsLost: 0,
+          S95: 0,
+          S133: 0,
+          S170: 0,
+          Asfalt: 0,
+          CO3: 0,
+          CO4: 0,
+          CO5: 0,
+          CO6: 0,
+          highestCheckout: 0
+        });
+      }
+
+      const stats = playerStats.get(playerId);
+      
+      // Count all games for total stats
+      stats.totalGamesPlayed += 1;
+      
+      // Check if player won this game (for total stats)
+      const isHomePlayer = gameResult.participants.home.includes(playerId);
+      if ((isHomePlayer && gameResult.winner === 'home') || 
+          (!isHomePlayer && gameResult.winner === 'away')) {
+        stats.totalGamesWon += 1;
+      }
+
+      // Count singles separately
+      if (gameResult.type === 'single') {
         stats.singlesPlayed += 1;
 
-        // Check if player won this game
-        const isHomePlayer = gameResult.participants.home.includes(playerId);
-        if ((isHomePlayer && gameResult.winner === 'home') || 
-            (!isHomePlayer && gameResult.winner === 'away')) {
+        const isWinner = (isHomePlayer && gameResult.winner === 'home') ||
+                        (!isHomePlayer && gameResult.winner === 'away');
+
+        if (isWinner) {
           stats.singlesWon += 1;
         }
 
-        // Add events
+        // Track legs for singles (extract from homeScore/awayScore)
+        if (gameResult.homeScore !== undefined && gameResult.awayScore !== undefined) {
+          if (isHomePlayer) {
+            stats.legsWon += gameResult.homeScore || 0;
+            stats.legsLost += gameResult.awayScore || 0;
+          } else {
+            stats.legsWon += gameResult.awayScore || 0;
+            stats.legsLost += gameResult.homeScore || 0;
+          }
+        }
+
+        // Add events (only tracked in singles)
         if (gameResult.events && gameResult.events[playerId]) {
           Object.entries(gameResult.events[playerId]).forEach(([eventType, count]: [string, any]) => {
             stats[eventType] = (stats[eventType] || 0) + count;
           });
         }
-      });
-    }
+      }
+    });
   });
 
   // Update database
@@ -127,20 +291,48 @@ async function updatePlayerStatistics(matchId: string, gameResults: Record<strin
     });
 
     if (existingStats) {
-      const newStats = {
-        singlesPlayed: existingStats.singlesPlayed + stats.singlesPlayed,
-        singlesWon: existingStats.singlesWon + stats.singlesWon,
-        S95: existingStats.S95 + stats.S95,
-        S133: existingStats.S133 + stats.S133,
-        S170: existingStats.S170 + stats.S170,
-        CO3: existingStats.CO3 + stats.CO3,
-        CO4: existingStats.CO4 + stats.CO4,
-        CO5: existingStats.CO5 + stats.CO5,
-        CO6: existingStats.CO6 + stats.CO6
+      // Get old stats for this player from this match (to subtract)
+      const oldStats = oldPlayerStats.get(playerId) || {
+        totalGamesPlayed: 0,
+        totalGamesWon: 0,
+        singlesPlayed: 0,
+        singlesWon: 0,
+        legsWon: 0,
+        legsLost: 0,
+        S95: 0,
+        S133: 0,
+        S170: 0,
+        Asfalt: 0,
+        CO3: 0,
+        CO4: 0,
+        CO5: 0,
+        CO6: 0,
+        highestCheckout: 0
       };
 
-      // Calculate new BPI
-      const bpi = calculateBPI(newStats);
+      const newStats = {
+        // Subtract old match stats, then add new match stats
+        totalGamesPlayed: existingStats.totalGamesPlayed - oldStats.totalGamesPlayed + stats.totalGamesPlayed,
+        totalGamesWon: existingStats.totalGamesWon - oldStats.totalGamesWon + stats.totalGamesWon,
+        singlesPlayed: existingStats.singlesPlayed - oldStats.singlesPlayed + stats.singlesPlayed,
+        singlesWon: existingStats.singlesWon - oldStats.singlesWon + stats.singlesWon,
+        legsWon: (existingStats.legsWon || 0) - oldStats.legsWon + stats.legsWon,
+        legsLost: (existingStats.legsLost || 0) - oldStats.legsLost + stats.legsLost,
+        S95: existingStats.S95 - oldStats.S95 + stats.S95,
+        S133: existingStats.S133 - oldStats.S133 + stats.S133,
+        S170: existingStats.S170 - oldStats.S170 + stats.S170,
+        Asfalt: existingStats.Asfalt - oldStats.Asfalt + stats.Asfalt,
+        CO3: existingStats.CO3 - oldStats.CO3 + stats.CO3,
+        CO4: existingStats.CO4 - oldStats.CO4 + stats.CO4,
+        CO5: existingStats.CO5 - oldStats.CO5 + stats.CO5,
+        CO6: existingStats.CO6 - oldStats.CO6 + stats.CO6,
+        // For highestCheckout, keep the maximum value (can't subtract, need to recalculate from all matches)
+        highestCheckout: Math.max(existingStats.highestCheckout, stats.highestCheckout)
+      };
+
+      // Calculate all indexes
+      const hslIndex = calculateHSLIndex(newStats);
+      const usoIndex = calculateUSOIndex(newStats);
 
       await prisma.playerStats.update({
         where: {
@@ -151,7 +343,22 @@ async function updatePlayerStatistics(matchId: string, gameResults: Record<strin
         },
         data: {
           ...newStats,
-          bpi
+          hslIndex,
+          usoIndex
+        }
+      });
+    } else {
+      // Create new player stats
+      const hslIndex = calculateHSLIndex(stats);
+      const usoIndex = calculateUSOIndex(stats);
+
+      await prisma.playerStats.create({
+        data: {
+          playerId: playerId,
+          seasonId: match.seasonId,
+          ...stats,
+          hslIndex,
+          usoIndex
         }
       });
     }

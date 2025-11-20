@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calculateBPI } from '@/lib/bpi';
 
 export async function GET() {
   try {
@@ -18,32 +17,77 @@ export async function GET() {
         stats: {
           where: { seasonId: season.id }
         }
-      }
+      },
+      orderBy: { name: 'asc' }
     });
 
-    // Calculate BPI for each player and format data
-    const playersWithBPI = players.map(player => {
+    // For admin view, return full player data
+    const playersWithStats = players.map(player => {
       const stats = player.stats[0];
-      const bpi = stats ? calculateBPI(stats) : 0;
-      
+      const hslIndex = stats?.hslIndex || 0; // Use stored HSL index
+      const usoIndex = stats?.usoIndex || 0; // Use stored USO index
+
       return {
-        id: player.id,
-        name: player.name,
-        nickname: player.nickname,
-        teamName: player.team.name,
-        bpi,
-        played: stats?.singlesPlayed || 0,
-        won: stats?.singlesWon || 0,
-        winRate: stats?.singlesPlayed ? Math.round((stats.singlesWon / stats.singlesPlayed) * 100) : 0
+        ...player,
+        hslIndex,
+        usoIndex,
+        stats: stats ? [stats] : []
       };
     });
 
-    // Sort by BPI descending
-    playersWithBPI.sort((a, b) => b.bpi - a.bpi);
-
-    return NextResponse.json(playersWithBPI);
+    return NextResponse.json(playersWithStats);
   } catch (error) {
     console.error('Error fetching players:', error);
     return NextResponse.json({ error: 'Failed to fetch players' }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { name, nickname, dateOfBirth, role, teamId, photoUrl } = body;
+
+    if (!name?.trim() || !teamId?.trim()) {
+      return NextResponse.json(
+        { error: 'Jméno a tým jsou povinné' },
+        { status: 400 }
+      );
+    }
+
+    const season = await prisma.season.findFirst({
+      where: { isActive: true }
+    });
+
+    if (!season) {
+      return NextResponse.json({ error: 'No active season found' }, { status: 404 });
+    }
+
+    const player = await prisma.player.create({
+      data: {
+        name: name.trim(),
+        nickname: nickname?.trim() || null,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        role: role || 'hráč',
+        teamId: teamId.trim(),
+        photoUrl: photoUrl?.trim() || null
+      },
+      include: {
+        team: true,
+        stats: true
+      }
+    });
+
+    // Create initial stats for the player
+    await prisma.playerStats.create({
+      data: {
+        playerId: player.id,
+        seasonId: season.id
+      }
+    });
+
+    return NextResponse.json(player, { status: 201 });
+  } catch (error) {
+    console.error('Error creating player:', error);
+    return NextResponse.json({ error: 'Failed to create player' }, { status: 500 });
   }
 }

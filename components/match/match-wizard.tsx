@@ -9,7 +9,7 @@ import { GameEditor } from './game-editor';
 import { MatchSummary } from './match-summary';
 import { PlayerStatsInput } from './player-stats-input';
 import { SimpleGameInput } from './simple-game-input';
-import { Users, Target, FileText, Save, BarChart3, Trophy } from 'lucide-react';
+import { Users, Target, FileText, Save, BarChart3, Trophy, AlertCircle } from 'lucide-react';
 import { getTeamLogo, getTeamGradient } from '@/lib/team-logos';
 
 // HŠL Game structure - 17 položek podle oficiálních pravidel
@@ -65,6 +65,8 @@ export function MatchWizard({ match }: MatchWizardProps) {
   const [gameResults, setGameResults] = useState<Record<number, any>>({});
   const [currentGame, setCurrentGame] = useState(1);
   const [events, setEvents] = useState<Record<string, any>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleGameComplete = (gameId: number, result: any) => {
     setGameResults(prev => ({ ...prev, [gameId]: result }));
@@ -79,7 +81,6 @@ export function MatchWizard({ match }: MatchWizardProps) {
   };
 
   const completedGames = Object.keys(gameResults).length;
-  const totalGames = HSL_GAMES.filter(game => !game.onlyIfTied).length; // 16 regular games
   const needsTiebreak = checkIfTiebreakNeeded();
   const actualTotalGames = needsTiebreak ? 17 : 16;
   const progressPercentage = (completedGames / actualTotalGames) * 100;
@@ -102,6 +103,103 @@ export function MatchWizard({ match }: MatchWizardProps) {
     });
     
     return homeWins === awayWins; // Tied after 16 games
+  }
+
+  async function saveMatchResults() {
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+
+      // Calculate match summary
+      let homeGamesWon = 0;
+      let awayGamesWon = 0;
+      let homeLegsTotal = 0;
+      let awayLegsTotal = 0;
+
+      Object.values(gameResults).forEach((result: any) => {
+        if (result.winner === 'home') {
+          homeGamesWon++;
+        } else {
+          awayGamesWon++;
+        }
+        homeLegsTotal += result.homeLegs || 0;
+        awayLegsTotal += result.awayLegs || 0;
+      });
+
+      // Calculate match points (V=3, VP=2, PP=1, P=0)
+      let homePoints = 0;
+      let awayPoints = 0;
+
+      if (homeGamesWon > awayGamesWon) {
+        homePoints = 3; // Victory
+        awayPoints = 0; // Loss
+      } else if (homeGamesWon < awayGamesWon) {
+        homePoints = 0; // Loss
+        awayPoints = 3; // Victory
+      } else {
+        // Tie - penalty points based on leg difference
+        if (homeLegsTotal > awayLegsTotal) {
+          homePoints = 2; // VP
+          awayPoints = 1; // PP
+        } else if (homeLegsTotal < awayLegsTotal) {
+          homePoints = 1; // PP
+          awayPoints = 2; // VP
+        } else {
+          homePoints = 1; // PP (equal)
+          awayPoints = 1; // PP (equal)
+        }
+      }
+
+      const matchResult = {
+        homeGamesWon,
+        awayGamesWon,
+        homeLegsTotal,
+        awayLegsTotal,
+        homePoints,
+        awayPoints,
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      };
+
+      // Prepare game results with events
+      const processedGameResults: Record<string, any> = {};
+
+      Object.entries(gameResults).forEach(([gameId, result]) => {
+        const game = HSL_GAMES.find(g => g.id === parseInt(gameId));
+        if (!game) return;
+
+        processedGameResults[gameId] = {
+          ...result,
+          type: game.type,
+          format: game.format,
+          events: events[gameId] || {}
+        };
+      });
+
+      // Send to API
+      const response = await fetch(`/api/matches/${match.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          gameResults: processedGameResults,
+          matchResult
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save match results');
+      }
+
+      // Success - redirect to match view or show confirmation
+      window.location.href = `/match/${match.id}`;
+    } catch (error) {
+      console.error('Error saving match:', error);
+      setSaveError('Chyba při ukládání výsledků. Zkuste to prosím znovu.');
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -149,7 +247,25 @@ export function MatchWizard({ match }: MatchWizardProps) {
               </div>
             </div>
           </div>
-          
+
+          {/* Error Alert */}
+          {saveError && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-800">{saveError}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSaveError(null)}
+                className="text-red-600 hover:text-red-800"
+              >
+                ✕
+              </Button>
+            </div>
+          )}
+
           {/* Progress Section */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
@@ -166,10 +282,34 @@ export function MatchWizard({ match }: MatchWizardProps) {
                   {Math.round(progressPercentage)}% hotovo
                 </div>
               </div>
-              <Button variant="outline" className="rounded-xl border-primary text-primary hover:bg-primary hover:text-white font-semibold">
-                <Save className="h-4 w-4 mr-2" />
-                Uložit průběh
-              </Button>
+              {completedGames >= 16 ? (
+                <Button
+                  onClick={saveMatchResults}
+                  disabled={isSaving}
+                  className="rounded-xl bg-success hover:bg-success/90 text-white font-semibold"
+                >
+                  {isSaving ? (
+                    <>
+                      <Target className="h-4 w-4 mr-2 animate-spin" />
+                      Ukládám...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Uložit kompletní zápas
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  disabled
+                  className="rounded-xl border-gray-300 text-gray-400 cursor-not-allowed"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Dokončete všechny hry
+                </Button>
+              )}
             </div>
             <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
               <div 
@@ -347,6 +487,9 @@ export function MatchWizard({ match }: MatchWizardProps) {
                 <PlayerStatsInput
                   homeTeam={match.homeTeam}
                   awayTeam={match.awayTeam}
+                  homeLineup={homeLineup}
+                  awayLineup={awayLineup}
+                  gameResults={gameResults}
                   events={events}
                   onEventsChange={setEvents}
                 />
@@ -361,9 +504,9 @@ export function MatchWizard({ match }: MatchWizardProps) {
             <div className="text-center mb-8">
               <h2 className="text-3xl font-black text-slate-900 mb-2">PDF EXPORT</h2>
               <p className="text-slate-600 font-medium mb-8">
-                Oficiální zápis zápasu s podpisy kapitánů a QR kódem
+                Oficiální zápis zápasu s podpisy kapitánů
               </p>
-              
+
               <Card className="rounded-2xl bg-gradient-to-br from-slate-50 to-white border border-gray-100 p-8 max-w-md mx-auto">
                 <div className="text-center space-y-4">
                   <div className="size-16 rounded-full bg-primary grid place-items-center mx-auto mb-4">
@@ -373,9 +516,15 @@ export function MatchWizard({ match }: MatchWizardProps) {
                   <p className="text-sm text-slate-600">
                     PDF bude obsahovat všechny výsledky, statistiky a místa pro podpisy kapitánů
                   </p>
-                  <Button className="w-full rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold py-3">
+                  <Button
+                    onClick={() => {
+                      window.open(`/api/matches/${match.id}/export-pdf`, '_blank');
+                    }}
+                    disabled={completedGames < 16}
+                    className="w-full rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <FileText className="h-4 w-4 mr-2" />
-                    Stáhnout oficiální zápis
+                    {completedGames >= 16 ? 'Stáhnout oficiální zápis' : 'Dokončete všechny hry'}
                   </Button>
                 </div>
               </Card>

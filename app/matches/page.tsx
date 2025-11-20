@@ -7,12 +7,23 @@ import { Button } from "@/components/ui/button";
 import { Plus, Edit, Calendar, Target, Trophy } from "lucide-react";
 import Link from "next/link";
 import { getTeamLogo, getTeamGradient } from '@/lib/team-logos';
+import { useSession } from "next-auth/react";
 
 // Removed unused server function - using API calls instead
 
 export default function Matches() {
   const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRound, setSelectedRound] = useState<number | null>(null);
+  const { data: session } = useSession();
+
+  // Get unique rounds from matches
+  const rounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b);
+
+  // Filter matches by selected round
+  const filteredMatches = selectedRound
+    ? matches.filter(m => m.round === selectedRound)
+    : matches;
 
   useEffect(() => {
     async function fetchMatches() {
@@ -58,17 +69,56 @@ export default function Matches() {
             <Badge className="bg-primary text-white px-4 py-2 font-bold">
               {matches.length} ZÁPASŮ V SEZÓNĚ
             </Badge>
-            <Button className="rounded-xl bg-accent hover:bg-accent/80 text-white font-bold px-6 py-2">
-              <Plus className="h-4 w-4 mr-2" />
-              Nový zápas
-            </Button>
           </div>
         </div>
       </div>
 
+      {/* Round Filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-slate-600 mr-2">Filtr kola:</span>
+        <Button
+          variant={selectedRound === null ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSelectedRound(null)}
+          className={`rounded-lg ${selectedRound === null ? 'bg-primary text-white' : ''}`}
+        >
+          Všechna
+        </Button>
+        {rounds.map((round) => (
+          <Button
+            key={round}
+            variant={selectedRound === round ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedRound(round)}
+            className={`rounded-lg ${selectedRound === round ? 'bg-primary text-white' : ''}`}
+          >
+            {round}. kolo
+          </Button>
+        ))}
+      </div>
+
       {/* Matches List */}
       <div className="space-y-6">
-        {matches.map((match: any) => (
+        {filteredMatches.map((match: any, index: number) => {
+          const prevMatch = index > 0 ? filteredMatches[index - 1] : null;
+          const showRoundDivider = !prevMatch || prevMatch.round !== match.round;
+
+          return (
+            <div key={match.id}>
+              {/* Round Divider */}
+              {showRoundDivider && (
+                <div className="relative my-8 first:mt-0">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t-2 border-slate-200"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <div className="bg-gradient-to-r from-primary to-accent text-white px-6 py-2 rounded-full font-black text-lg shadow-lg">
+                      <Trophy className="inline h-4 w-4 mr-2" />
+                      {match.round}. KOLO
+                    </div>
+                  </div>
+                </div>
+              )}
           <Card key={match.id} className="rounded-2xl bg-white border border-gray-100 card-shadow hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
             <CardContent className="p-0">
               {/* Match Header - Single Row */}
@@ -102,8 +152,8 @@ export default function Matches() {
                   <div className="text-center">
                     {match.result ? (
                       <div className="bg-primary text-white px-6 py-3 rounded-2xl font-black text-2xl shadow-lg">
-                        {typeof match.result === 'object' && match.result?.homeScore !== undefined 
-                          ? `${match.result.homeScore} : ${match.result.awayScore}` 
+                        {typeof match.result === 'object' && (match.result?.homeWins !== undefined || match.result?.homeScore !== undefined)
+                          ? `${match.result.homeWins ?? match.result.homeScore} : ${match.result.awayWins ?? match.result.awayScore}`
                           : 'TBD'
                         }
                       </div>
@@ -159,53 +209,59 @@ export default function Matches() {
                         variant={match.endTime ? "default" : "outline"} 
                         className={`font-bold ${match.endTime ? "bg-emerald-600 text-white" : "border-amber-400 text-amber-600"}`}
                       >
-                        {match.endTime ? "ODEHRÁNO" : "NAPLÁNOVÁNO"}
+                        {match.endTime ? "OVĚŘENÝ VÝSLEDEK" : "NAPLÁNOVÁNO"}
                       </Badge>
                       {match.endTime && (
                         <Badge variant="outline" className="text-xs">
-                          DOKONČENO {new Date(match.endTime).toLocaleDateString('cs-CZ')}
+                          OVĚŘENO {new Date(match.endTime).toLocaleDateString('cs-CZ')}
                         </Badge>
                       )}
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <Button asChild size="lg" className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold px-6">
-                      <Link href={`/match/${match.id}`}>
-                        {match.endTime ? (
-                          <>
-                            <Trophy className="h-4 w-4 mr-2" />
-                            Detail zápasu
-                          </>
-                        ) : (
-                          <>
+                    {match.endTime ? (
+                      // Completed match - only show button for admins
+                      session?.user?.role === 'admin' && (
+                        <Button asChild size="lg" className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold px-6">
+                          <Link href={`/match/${match.id}`}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Upravit výsledek
+                          </Link>
+                        </Button>
+                      )
+                    ) : (
+                      // Scheduled match - show for admins
+                      session?.user?.role === 'admin' && (
+                        <Button asChild size="lg" className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold px-6">
+                          <Link href={`/match/${match.id}`}>
                             <Edit className="h-4 w-4 mr-2" />
                             Zadat výsledek
-                          </>
-                        )}
-                      </Link>
-                    </Button>
+                          </Link>
+                        </Button>
+                      )
+                    )}
                   </div>
                 </div>
               </div>
             </CardContent>
-          </Card>
-        ))}
+              </Card>
+            </div>
+          );
+        })}
         
-        {matches.length === 0 && (
+        {filteredMatches.length === 0 && (
           <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
             <CardContent className="py-16 text-center">
               <div className="mx-auto mb-6 size-20 rounded-full bg-slate-100 grid place-items-center">
                 <Calendar className="size-10 text-slate-400" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-2">Žádné zápasy</h3>
-              <p className="text-slate-600 mb-6">
-                Zápasy budou dostupné po vytvoření rozlosování
+              <h3 className="text-2xl font-black text-slate-900 mb-2">
+                {selectedRound ? `Žádné zápasy v ${selectedRound}. kole` : 'Žádné zápasy'}
+              </h3>
+              <p className="text-slate-600">
+                {selectedRound ? 'Zvolte jiné kolo' : 'Zápasy budou dostupné po vytvoření rozlosování'}
               </p>
-              <Button className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold px-6">
-                <Plus className="h-4 w-4 mr-2" />
-                Vytvořit zápas
-              </Button>
             </CardContent>
           </Card>
         )}
