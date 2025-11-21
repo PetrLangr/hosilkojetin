@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail, MapPin, Phone, Facebook, Instagram, Youtube } from "lucide-react";
+import { Mail, MapPin, Phone, Facebook } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -16,8 +16,8 @@ export function Footer() {
   const matchLinks = [
     { name: "Rozpis zápasů", href: "/schedule" },
     { name: "Výsledky", href: "/matches" },
-    { name: "Statistiky", href: "/stats" },
-    { name: "Archiv", href: "/archive" },
+    { name: "Pravidla", href: "/rules" },
+    { name: "Archiv", href: "/archiv" },
   ];
 
   return (
@@ -81,13 +81,21 @@ export function Footer() {
           <div className="space-y-6">
             <h4 className="text-lg font-black text-white">Kontakt</h4>
             <div className="space-y-4">
-              <div className="flex items-center gap-3 text-white/90">
-                <Mail className="h-4 w-4" />
-                <span className="text-sm font-medium">info@hsl-liga.cz</span>
+              <div>
+                <p className="text-sm font-bold text-white mb-1">Vedoucí ligy</p>
+                <p className="text-sm text-white/90">Ladislav Kučírek</p>
+                <div className="flex items-center gap-2 text-white/80 mt-1">
+                  <Phone className="h-3 w-3" />
+                  <span className="text-sm">777 852 277</span>
+                </div>
               </div>
-              <div className="flex items-center gap-3 text-white/90">
-                <Phone className="h-4 w-4" />
-                <span className="text-sm font-medium">+420 123 456 789</span>
+              <div>
+                <p className="text-sm font-bold text-white mb-1">Technická podpora</p>
+                <p className="text-sm text-white/90">Petr Langr</p>
+                <div className="flex items-center gap-2 text-white/80 mt-1">
+                  <Mail className="h-3 w-3" />
+                  <span className="text-sm">petr.langr@pmlogy.cz</span>
+                </div>
               </div>
               <div className="flex items-center gap-3 text-white/90">
                 <MapPin className="h-4 w-4" />
@@ -98,38 +106,17 @@ export function Footer() {
             {/* Social Media */}
             <div className="space-y-4">
               <h5 className="font-bold text-white">Sledujte nás</h5>
-              <div className="flex gap-3">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="size-10 p-0 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm"
-                  asChild
-                >
-                  <Link href="#" aria-label="Facebook">
-                    <Facebook className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="size-10 p-0 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm"
-                  asChild
-                >
-                  <Link href="#" aria-label="Instagram">
-                    <Instagram className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="size-10 p-0 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm"
-                  asChild
-                >
-                  <Link href="#" aria-label="YouTube">
-                    <Youtube className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm px-4"
+                asChild
+              >
+                <Link href="https://www.facebook.com/groups/764848670219258" target="_blank" rel="noopener noreferrer">
+                  <Facebook className="h-4 w-4 mr-2" />
+                  Facebook skupina
+                </Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -144,14 +131,11 @@ export function Footer() {
             </div>
             
             <div className="flex items-center gap-6 text-sm">
-              <Link href="/privacy" className="text-white/90 hover:text-white font-medium transition-colors">
-                Ochrana osobních údajů
-              </Link>
-              <Link href="/terms" className="text-white/90 hover:text-white font-medium transition-colors">
-                Podmínky užití
-              </Link>
               <Link href="/rules" className="text-white/90 hover:text-white font-medium transition-colors">
                 Pravidla ligy
+              </Link>
+              <Link href="/contact" className="text-white/90 hover:text-white font-medium transition-colors">
+                Kontakt
               </Link>
             </div>
           </div>
