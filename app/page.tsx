@@ -29,6 +29,7 @@ async function getHomepageData() {
           matchesProgress: '0/0',
           roundsProgress: '0/0'
         },
+        standings: [],
         recentResults: [],
         upcomingMatches: [],
         posts: []

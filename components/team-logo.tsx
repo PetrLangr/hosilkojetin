@@ -33,10 +33,17 @@ export function TeamLogo({
   }
 
   return (
-    <img 
+    <img
       src={logoUrl}
       alt={teamName}
       className={className}
+      style={{
+        objectFit: 'contain',
+        maxWidth: '100%',
+        maxHeight: '100%',
+        width: 'auto',
+        height: 'auto'
+      }}
       onError={() => setImageError(true)}
     />
   );
