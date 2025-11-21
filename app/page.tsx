@@ -4,8 +4,10 @@ import { Target, Users, Calendar, Trophy, MessageSquare, Pin, TrendingUp, Constr
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TeamLogo } from "@/components/team-logo";
+import { PWAQRCode } from "@/components/pwa-qr-code";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { calculateStandings, sortStandings } from "@/lib/standings";
 
 async function getHomepageData() {
@@ -180,7 +182,7 @@ async function getHomepageData() {
 
 export default async function Homepage() {
   const data = await getHomepageData();
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   return (
     <div className="space-y-8">
@@ -666,6 +668,11 @@ export default async function Homepage() {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* PWA QR Code */}
+            <div className="mt-4 md:mt-6">
+              <PWAQRCode />
+            </div>
           </div>
         </div>
 
