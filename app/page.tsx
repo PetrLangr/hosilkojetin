@@ -183,7 +183,14 @@ async function getHomepageData() {
 
 export default async function Homepage() {
   const data = await getHomepageData();
-  const session = await getServerSession(authOptions);
+
+  let session = null;
+  try {
+    session = await getServerSession(authOptions);
+  } catch (error) {
+    // Ignore JWT session errors (invalid/expired tokens)
+    console.error('Session error:', error);
+  }
 
   return (
     <div className="space-y-8">

@@ -55,18 +55,18 @@ export default function Matches() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-8">
       {/* Hero Section */}
-      <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-white rounded-3xl border border-gray-100 card-shadow">
+      <div className="text-center py-8 md:py-16 px-4 bg-gradient-to-br from-slate-50 to-white rounded-xl md:rounded-3xl border border-gray-100 card-shadow">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight">
+          <h1 className="text-2xl sm:text-4xl md:text-6xl font-black text-slate-900 mb-2 md:mb-4 tracking-tight">
             VŠECHNY <span className="text-primary">ZÁPASY</span>
           </h1>
-          <p className="text-xl text-slate-600 mb-6">
+          <p className="text-sm md:text-xl text-slate-600 mb-4 md:mb-6">
             Kompletní přehled všech utkání sezóny 2025/2026
           </p>
           <div className="flex justify-center gap-4">
-            <Badge className="bg-primary text-white px-4 py-2 font-bold">
+            <Badge className="bg-primary text-white px-3 md:px-4 py-1.5 md:py-2 font-bold text-xs md:text-sm">
               {matches.length} ZÁPASŮ V SEZÓNĚ
             </Badge>
           </div>
@@ -74,31 +74,33 @@ export default function Matches() {
       </div>
 
       {/* Round Filter */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-semibold text-slate-600 mr-2">Filtr kola:</span>
-        <Button
-          variant={selectedRound === null ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSelectedRound(null)}
-          className={`rounded-lg ${selectedRound === null ? 'bg-primary text-white' : ''}`}
-        >
-          Všechna
-        </Button>
-        {rounds.map((round) => (
+      <div className="overflow-x-auto pb-2">
+        <div className="flex items-center gap-2 min-w-max">
+          <span className="text-xs md:text-sm font-semibold text-slate-600 mr-1 md:mr-2 shrink-0">Kolo:</span>
           <Button
-            key={round}
-            variant={selectedRound === round ? "default" : "outline"}
+            variant={selectedRound === null ? "default" : "outline"}
             size="sm"
-            onClick={() => setSelectedRound(round)}
-            className={`rounded-lg ${selectedRound === round ? 'bg-primary text-white' : ''}`}
+            onClick={() => setSelectedRound(null)}
+            className={`rounded-lg text-xs md:text-sm px-2 md:px-3 ${selectedRound === null ? 'bg-primary text-white' : ''}`}
           >
-            {round}. kolo
+            Vše
           </Button>
-        ))}
+          {rounds.map((round) => (
+            <Button
+              key={round}
+              variant={selectedRound === round ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedRound(round)}
+              className={`rounded-lg text-xs md:text-sm px-2 md:px-3 ${selectedRound === round ? 'bg-primary text-white' : ''}`}
+            >
+              {round}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Matches List */}
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {filteredMatches.map((match: any, index: number) => {
           const prevMatch = index > 0 ? filteredMatches[index - 1] : null;
           const showRoundDivider = !prevMatch || prevMatch.round !== match.round;
@@ -107,27 +109,41 @@ export default function Matches() {
             <div key={match.id}>
               {/* Round Divider */}
               {showRoundDivider && (
-                <div className="relative my-8 first:mt-0">
+                <div className="relative my-4 md:my-8 first:mt-0">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t-2 border-slate-200"></div>
                   </div>
                   <div className="relative flex justify-center">
-                    <div className="bg-gradient-to-r from-primary to-accent text-white px-6 py-2 rounded-full font-black text-lg shadow-lg">
-                      <Trophy className="inline h-4 w-4 mr-2" />
+                    <div className="bg-gradient-to-r from-primary to-accent text-white px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-sm md:text-lg shadow-lg">
+                      <Trophy className="inline h-3 w-3 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                       {match.round}. KOLO
                     </div>
                   </div>
                 </div>
               )}
-          <Card key={match.id} className="rounded-2xl bg-white border border-gray-100 card-shadow hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+          <Card key={match.id} className="rounded-xl md:rounded-2xl bg-white border border-gray-100 card-shadow hover:shadow-xl transition-all duration-300 group">
             <CardContent className="p-0">
-              {/* Match Header - Single Row */}
-              <div className="relative overflow-hidden rounded-t-2xl bg-gradient-to-r from-slate-50 via-white to-slate-50 p-6">
-                <div className="flex items-center justify-between">
+              {/* Match Header */}
+              <div className="relative overflow-hidden rounded-t-xl md:rounded-t-2xl bg-gradient-to-r from-slate-50 via-white to-slate-50 p-3 md:p-6">
+                {/* Score on top for mobile */}
+                <div className="flex justify-center mb-3 md:hidden">
+                  {match.result ? (
+                    <div className="bg-primary text-white px-4 py-1.5 rounded-xl font-black text-lg shadow-lg">
+                      {typeof match.result === 'object' && (match.result?.homeWins !== undefined || match.result?.homeScore !== undefined)
+                        ? `${match.result.homeWins ?? match.result.homeScore} : ${match.result.awayWins ?? match.result.awayScore}`
+                        : 'TBD'
+                      }
+                    </div>
+                  ) : (
+                    <div className="text-xl font-black text-slate-400">VS</div>
+                  )}
+                </div>
+
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
                   {/* Home Team */}
-                  <div className="flex items-center gap-4">
-                    <div className="size-14 rounded-xl bg-white shadow-sm border border-slate-200 p-1">
-                      <img 
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <div className="size-10 md:size-14 rounded-lg md:rounded-xl bg-white shadow-sm border border-slate-200 p-1 shrink-0">
+                      <img
                         src={getTeamLogo(match.homeTeam.name)}
                         alt={match.homeTeam.name}
                         className="w-full h-full object-contain"
@@ -136,20 +152,20 @@ export default function Matches() {
                           target.style.display = 'none';
                           const fallback = target.parentElement;
                           if (fallback) {
-                            fallback.className = `size-14 rounded-xl bg-gradient-to-br ${getTeamGradient(match.homeTeam.name)} grid place-items-center text-white shadow-sm`;
-                            fallback.innerHTML = `<span class="font-black text-sm">${match.homeTeam.shortName || 'HOM'}</span>`;
+                            fallback.className = `size-10 md:size-14 rounded-lg md:rounded-xl bg-gradient-to-br ${getTeamGradient(match.homeTeam.name)} grid place-items-center text-white shadow-sm`;
+                            fallback.innerHTML = `<span class="font-black text-xs md:text-sm">${match.homeTeam.shortName || 'HOM'}</span>`;
                           }
                         }}
                       />
                     </div>
-                    <div>
-                      <div className="font-black text-xl text-slate-900">{match.homeTeam.name}</div>
-                      <div className="text-sm text-muted-foreground">DOMÁCÍ • {match.round}. kolo</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-black text-sm md:text-xl text-slate-900 truncate">{match.homeTeam.name}</div>
+                      <div className="text-xs md:text-sm text-muted-foreground">DOMÁCÍ</div>
                     </div>
                   </div>
-                  
-                  {/* VS or Score */}
-                  <div className="text-center">
+
+                  {/* VS or Score - Desktop only */}
+                  <div className="text-center hidden md:block">
                     {match.result ? (
                       <div className="bg-primary text-white px-6 py-3 rounded-2xl font-black text-2xl shadow-lg">
                         {typeof match.result === 'object' && (match.result?.homeWins !== undefined || match.result?.homeScore !== undefined)
@@ -161,15 +177,11 @@ export default function Matches() {
                       <div className="text-3xl font-black text-slate-400">VS</div>
                     )}
                   </div>
-                  
+
                   {/* Away Team */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="font-black text-xl text-slate-900">{match.awayTeam.name}</div>
-                      <div className="text-sm text-muted-foreground">HOSTÉ</div>
-                    </div>
-                    <div className="size-14 rounded-xl bg-white shadow-sm border border-slate-200 p-1">
-                      <img 
+                  <div className="flex items-center gap-3 md:gap-4 md:flex-row-reverse">
+                    <div className="size-10 md:size-14 rounded-lg md:rounded-xl bg-white shadow-sm border border-slate-200 p-1 shrink-0">
+                      <img
                         src={getTeamLogo(match.awayTeam.name)}
                         alt={match.awayTeam.name}
                         className="w-full h-full object-contain"
@@ -178,70 +190,63 @@ export default function Matches() {
                           target.style.display = 'none';
                           const fallback = target.parentElement;
                           if (fallback) {
-                            fallback.className = `size-14 rounded-xl bg-gradient-to-br ${getTeamGradient(match.awayTeam.name)} grid place-items-center text-white shadow-sm`;
-                            fallback.innerHTML = `<span class="font-black text-sm">${match.awayTeam.shortName || 'AWY'}</span>`;
+                            fallback.className = `size-10 md:size-14 rounded-lg md:rounded-xl bg-gradient-to-br ${getTeamGradient(match.awayTeam.name)} grid place-items-center text-white shadow-sm`;
+                            fallback.innerHTML = `<span class="font-black text-xs md:text-sm">${match.awayTeam.shortName || 'AWY'}</span>`;
                           }
                         }}
                       />
+                    </div>
+                    <div className="min-w-0 flex-1 md:text-right">
+                      <div className="font-black text-sm md:text-xl text-slate-900 truncate">{match.awayTeam.name}</div>
+                      <div className="text-xs md:text-sm text-muted-foreground">HOSTÉ</div>
                     </div>
                   </div>
                 </div>
               </div>
               
               {/* Match Details */}
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="h-4 w-4 text-slate-400" />
-                      <span className="font-semibold text-slate-600">
+              <div className="p-3 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="space-y-1.5 md:space-y-1">
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <Calendar className="h-3 w-3 md:h-4 md:w-4 text-slate-400 shrink-0" />
+                      <span className="font-semibold text-slate-600 text-xs md:text-sm">
                         {match.startTime ? new Date(match.startTime).toLocaleDateString('cs-CZ', {
-                          weekday: 'long',
+                          weekday: 'short',
                           day: 'numeric',
-                          month: 'long',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : 'Datum neuvedek'}
+                          month: 'short'
+                        }) : 'Datum neuvedeno'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        variant={match.endTime ? "default" : "outline"} 
-                        className={`font-bold ${match.endTime ? "bg-emerald-600 text-white" : "border-amber-400 text-amber-600"}`}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge
+                        variant={match.endTime ? "default" : "outline"}
+                        className={`font-bold text-xs ${match.endTime ? "bg-emerald-600 text-white" : "border-amber-400 text-amber-600"}`}
                       >
-                        {match.endTime ? "OVĚŘENÝ VÝSLEDEK" : "NAPLÁNOVÁNO"}
+                        {match.endTime ? "ODEHRÁNO" : "NAPLÁNOVÁNO"}
                       </Badge>
-                      {match.endTime && (
-                        <Badge variant="outline" className="text-xs">
-                          OVĚŘENO {new Date(match.endTime).toLocaleDateString('cs-CZ')}
-                        </Badge>
-                      )}
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {match.endTime ? (
-                      // Completed match - only show button for admins
-                      session?.user?.role === 'admin' && (
-                        <Button asChild size="lg" className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold px-6">
+
+                  {session?.user?.role === 'admin' && (
+                    <div className="flex items-center">
+                      {match.endTime ? (
+                        <Button asChild size="sm" className="rounded-lg md:rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 md:px-6 text-xs md:text-sm">
                           <Link href={`/match/${match.id}`}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Upravit výsledek
+                            <Edit className="h-3 w-3 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                            Upravit
                           </Link>
                         </Button>
-                      )
-                    ) : (
-                      // Scheduled match - show for admins
-                      session?.user?.role === 'admin' && (
-                        <Button asChild size="lg" className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold px-6">
+                      ) : (
+                        <Button asChild size="sm" className="rounded-lg md:rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold px-3 md:px-6 text-xs md:text-sm">
                           <Link href={`/match/${match.id}`}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Zadat výsledek
+                            <Edit className="h-3 w-3 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                            Zadat
                           </Link>
                         </Button>
-                      )
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
