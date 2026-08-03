@@ -10,12 +10,10 @@ export function Footer() {
     { name: "Domů", href: "/" },
     { name: "Tabulka", href: "/standings" },
     { name: "Týmy", href: "/teams" },
-    { name: "Hráči", href: "/players" },
   ];
 
   const matchLinks = [
-    { name: "Rozpis zápasů", href: "/schedule" },
-    { name: "Výsledky", href: "/matches" },
+    { name: "Zápasy a výsledky", href: "/schedule" },
     { name: "Pravidla", href: "/rules" },
     { name: "Archiv", href: "/archiv" },
   ];
@@ -94,7 +92,7 @@ export function Footer() {
                 <p className="text-sm text-white/90">Petr Langr</p>
                 <div className="flex items-center gap-2 text-white/80 mt-1">
                   <Mail className="h-3 w-3" />
-                  <span className="text-sm">petr.langr@pmlogy.cz</span>
+                  <span className="text-sm">peet04@seznam.cz</span>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-white/90">

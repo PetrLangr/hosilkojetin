@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -11,79 +12,79 @@ import { Menu, Target, User, LogIn, LogOut } from "lucide-react";
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const { data: session, status } = useSession();
+  const pathname = usePathname();
 
   const navigation = [
     { name: "Domů", href: "/" },
-    { name: "Rozpis", href: "/schedule" },
+    { name: "Zápasy", href: "/schedule" },
     { name: "Tabulka", href: "/standings" },
     { name: "Týmy", href: "/teams" },
-    { name: "Hráči", href: "/players" },
-    { name: "Zápasy", href: "/matches" },
     { name: "Archiv", href: "/archiv" },
     { name: "Kontakt", href: "/contact" },
   ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-primary/20 bg-gradient-to-r from-primary to-[#9F1239] shadow-lg">
-      <div className="container mx-auto px-6 lg:px-8 h-20 flex items-center justify-between">
-        <Link href="/" className="group transition-all flex items-center gap-3">
-          <img src="/logo_hsl.svg" alt="HŠL" className="h-12 w-auto brightness-0 invert" />
-          <span className="text-2xl md:text-3xl font-black text-white group-hover:text-white/80 transition-colors tracking-tight">
+      <div className="container mx-auto px-4 lg:px-6 h-14 flex items-center justify-between">
+        <Link href="/" className="group transition-all flex items-center gap-2">
+          <img src="/logo_hsl.svg" alt="HŠL" className="h-7 w-auto brightness-0 invert" />
+          <span className="text-lg font-black text-white group-hover:text-white/80 transition-colors tracking-tight">
             HŠL
           </span>
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center space-x-8">
-          <nav className="flex items-center space-x-8">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="text-base font-bold text-white/90 hover:text-white transition-colors py-2 relative group"
-              >
-                {item.name}
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-white transition-all group-hover:w-full" />
-              </Link>
-            ))}
+        <div className="hidden lg:flex items-center space-x-5">
+          <nav className="flex items-center space-x-1">
+            {navigation.map((item) => {
+              // Aktivní položka: "/" jen přesně, ostatní i pro podstránky (/team/x → Týmy)
+              const active =
+                item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-white/15 text-white"
+                      : "text-white/75 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Auth Section */}
-          <div className="flex items-center gap-6 ml-8 pl-8 border-l border-white/20">
+          <div className="flex items-center gap-3 ml-3 pl-4 border-l border-white/20">
             {status === "loading" ? (
-              <div className="text-base text-white/80">Načítám...</div>
+              <div className="text-sm text-white/80">Načítám…</div>
             ) : session ? (
-              <div className="flex items-center gap-4">
-                <Button variant="outline" asChild className="rounded-xl border-white/30 bg-white/10 text-white hover:bg-white hover:text-primary font-semibold backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" asChild className="h-8 rounded-md border-white/30 bg-white/10 text-white hover:bg-white hover:text-primary font-medium">
                   <Link href={session.user?.role === 'admin' ? '/admin' : '/profile'}>
-                    <User className="h-4 w-4 mr-2" />
-                    {session.user?.role === 'admin' ? 'Admin' : 'Profil'}
+                    <User className="h-3.5 w-3.5 mr-1.5" />
+                    {/* Jméno je uvnitř tlačítka — dřív stálo vedle a rozbíjelo výšku lišty */}
+                    {session.user?.name ?? (session.user?.role === 'admin' ? 'Admin' : 'Profil')}
                   </Link>
                 </Button>
-                
-                <div>
-                  <div className="font-bold text-white">{session.user?.name}</div>
-                  {session.user?.player?.team && (
-                    <div className="text-sm text-white/70">
-                      {session.user.player.team.name}
-                    </div>
-                  )}
-                </div>
-                
-                {session.user?.role && (
-                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30 backdrop-blur-sm">
-                    {session.user.role}
+
+                {session.user?.role === 'admin' && (
+                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30 text-[11px] px-1.5 py-0">
+                    admin
                   </Badge>
                 )}
-                
-                <Button variant="ghost" onClick={() => signOut()} className="hover:bg-white/10 text-white/90 hover:text-white">
-                  <LogOut className="h-4 w-4" />
+
+                <Button variant="ghost" size="sm" onClick={() => signOut()} aria-label="Odhlásit se" className="h-8 w-8 p-0 hover:bg-white/10 text-white/80 hover:text-white">
+                  <LogOut className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ) : (
-              <Button onClick={() => signIn()} className="rounded-xl bg-white text-primary hover:bg-white/90 font-bold px-6 py-2 shadow-lg">
-                <LogIn className="h-4 w-4 mr-2" />
-                Přihlásit se
+              <Button size="sm" onClick={() => signIn()} className="h-8 rounded-md bg-white text-primary hover:bg-white/90 font-semibold px-3">
+                <LogIn className="h-3.5 w-3.5 mr-1.5" />
+                Přihlásit
               </Button>
             )}
           </div>
@@ -91,7 +92,9 @@ export function Header() {
 
         {/* Mobile Navigation */}
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild className="md:hidden">
+          {/* lg, ne md — desktopová navigace se zapíná až na lg, jinak by mezi
+              768 a 1024 px nebyla navigace vidět vůbec */}
+          <SheetTrigger asChild className="lg:hidden">
             <Button variant="outline" size="icon" className="border-white/30 bg-white/10 text-white hover:bg-white hover:text-primary">
               <Menu className="h-4 w-4" />
             </Button>

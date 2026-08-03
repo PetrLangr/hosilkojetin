@@ -57,15 +57,60 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/*
+ * Typografická škála.
+ *
+ * Displejové velikosti jsou proti výchozímu Tailwindu stlačené. Web je datový —
+ * tabulky, soupisky, statistiky — a nadpis přes půl obrazovky jen odsouvá obsah
+ * pod okraj. Zmenšením tokenů se zkrotí i stránky, které zatím používají staré
+ * text-4xl/5xl/6xl hero bloky, aniž by se musely přepisovat.
+ */
+@theme {
+  --text-3xl: 1.5rem;      /* 24px (výchozí 30) */
+  --text-3xl--line-height: 1.875rem;
+  --text-4xl: 1.75rem;     /* 28px (výchozí 36) */
+  --text-4xl--line-height: 2.125rem;
+  --text-5xl: 1.875rem;    /* 30px (výchozí 48) */
+  --text-5xl--line-height: 2.25rem;
+  --text-6xl: 2rem;        /* 32px (výchozí 60) */
+  --text-6xl--line-height: 2.375rem;
+  --text-7xl: 2.25rem;     /* 36px (výchozí 72) */
+  --text-7xl--line-height: 2.5rem;
+
+  /* Zaoblení: rounded-3xl na kartě přes celou šířku vypadá jako widget, ne jako
+     tabulka. Velké stupně srovnáváme k 10-12 px. */
+  --radius-2xl: 0.625rem;  /* 10px (výchozí 16) */
+  --radius-3xl: 0.75rem;   /* 12px (výchozí 24) */
+
+  /* Výška řádku datové tabulky — jediné místo, kde se ladí hustota. */
+  --spacing-row: 2.5rem;   /* 40px */
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, sans-serif;
+  font-size: 0.875rem;     /* 14px základ; nadpisy si velikost říkají samy */
+  line-height: 1.5;
 }
 
 /* HŠL Custom Styles */
+
+/* Používá se napříč stránkami jako "karta". Držíme decentní obrys místo
+   vrženého stínu — u plnoformátových tabulek stín jen rozmazává mřížku. */
 .card-shadow {
-  box-shadow: 0 6px 24px rgba(2, 6, 23, 0.06);
+  box-shadow: 0 1px 2px rgba(2, 6, 23, 0.04);
+}
+
+/* Číselné sloupce: číslice stejné šířky, aby čísla pod sebou lícovala. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Popisek sloupce / sekce. Malé, prostrkané, tlumené — nese strukturu, ne důraz. */
+.label-muted {
+  @apply text-[11px] font-semibold uppercase tracking-wider text-muted-foreground;
 }
 
 .score-pill {
