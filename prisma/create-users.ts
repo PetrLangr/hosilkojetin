@@ -19,8 +19,13 @@ async function main() {
     // Create email from player name (simple approach)
     const email = `${player.name.toLowerCase().replace(/\s+/g, '.')}@hsl.cz`;
     
-    // Default password (players should change this)
-    const defaultPassword = 'hsl2024';
+    // Výchozí heslo z prostředí — repozitář je veřejný, natvrdo zapsané heslo
+    // by znal každý, kdo se na kód podívá:
+    //   DEFAULT_PLAYER_PASSWORD=... npx tsx prisma/create-users.ts
+    const defaultPassword = process.env.DEFAULT_PLAYER_PASSWORD;
+    if (!defaultPassword) {
+      throw new Error('Chybí DEFAULT_PLAYER_PASSWORD v prostředí.');
+    }
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
     // Determine role - set first player of each team as captain for demo

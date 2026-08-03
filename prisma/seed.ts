@@ -211,9 +211,15 @@ async function main() {
   }
 
   // Create admin user
-  const adminEmail = 'petr.langr@pmlogy.cz';
-  const adminPassword = 'AdminHSL2025!';
-  
+  // Přihlašovací údaje se berou z prostředí — repozitář je veřejný, takže heslo
+  // zapsané v kódu by si mohl přečíst kdokoliv:
+  //   ADMIN_EMAIL=... ADMIN_PASSWORD=... npx tsx prisma/seed.ts
+  const adminEmail = process.env.ADMIN_EMAIL ?? 'peet04@seznam.cz';
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    throw new Error('Chybí ADMIN_PASSWORD v prostředí — admin účet nebude založen.');
+  }
+
   const existingAdmin = await prisma.user.findUnique({
     where: { email: adminEmail }
   });

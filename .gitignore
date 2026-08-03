@@ -42,3 +42,11 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Osobní údaje hráčů — repozitář je veřejný.
+# Přihlášky obsahují jména, data narození, telefony, e-maily a podpisy kapitánů;
+# datový soubor sezóny totéž ve strojové podobě. Do databáze se to nahrává lokálně
+# skripty ve scripts/, v gitu to nemá co dělat.
+prihlasky/
+scripts/data/season-*.json
+cookies.txt
