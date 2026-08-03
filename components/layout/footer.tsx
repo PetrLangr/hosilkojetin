@@ -2,9 +2,25 @@ import Link from "next/link";
 import { Mail, MapPin, Phone, Facebook } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { prisma } from "@/lib/prisma";
 
-export function Footer() {
+/** Aktivní sezóna z databáze — v patičce byl ročník napsaný natvrdo a po přepnutí
+    na 2026/2027 tam zůstal viset ten předchozí. */
+async function getActiveSeasonName() {
+  try {
+    const season = await prisma.season.findFirst({
+      where: { isActive: true },
+      select: { name: true },
+    });
+    return season?.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function Footer() {
   const currentYear = new Date().getFullYear();
+  const seasonName = await getActiveSeasonName();
   
   const quickLinks = [
     { name: "Domů", href: "/" },
@@ -38,9 +54,11 @@ export function Footer() {
               Sledujte své oblíbené týmy a hráče v průběhu celé sezóny.
             </p>
             
-            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm font-bold">
-              SEZÓNA 2025/2026
-            </Badge>
+            {seasonName && (
+              <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm font-bold">
+                SEZÓNA {seasonName}
+              </Badge>
+            )}
           </div>
 
           {/* Quick Links */}
