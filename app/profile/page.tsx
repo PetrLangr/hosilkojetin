@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { User, Target, Users, Calendar, Settings, Crown, MapPin, Mail, Shield, Plus, Edit } from 'lucide-react';
 import { TeamLogo } from '@/components/team-logo';
 import Link from 'next/link';
+import { PageHeader } from '@/components/layout/page-header';
 
 export default function Profile() {
   const { data: session, status } = useSession();
@@ -79,23 +80,10 @@ export default function Profile() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <section className="text-center py-12 bg-gradient-to-br from-slate-50 via-white to-rose-50 rounded-3xl border border-gray-100">
-        <div className="mb-6">
-          <Badge className="bg-primary text-white px-4 py-2 text-sm font-semibold">
-            OSOBNÍ PROFIL
-          </Badge>
-        </div>
-        <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 leading-tight tracking-tight">
-          MŮJ <span className="text-primary">PROFIL</span>
-        </h1>
-        <p className="text-xl text-slate-600 font-medium">
-          Osobní dashboard a statistiky
-        </p>
-      </section>
+    <div className="space-y-4">
+      <PageHeader title="Můj profil" subtitle={user?.name ?? undefined} />
 
-      <div className="flex flex-col lg:flex-row lg:items-start gap-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         {/* User Info - Enhanced */}
         <div className="lg:w-1/3">
           <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
@@ -174,12 +162,7 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  <Button asChild className="w-full rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold">
-                    <Link href={`/player/${player.id}`}>
-                      <Target className="h-4 w-4 mr-2" />
-                      Zobrazit veřejný profil
-                    </Link>
-                  </Button>
+                  {/* Veřejný profil hráče byl zrušen — tlačítko vedlo na neexistující stránku */}
                 </div>
               </CardContent>
             )}
@@ -406,7 +389,7 @@ export default function Profile() {
                         </div>
 
                         <Button asChild className="w-full rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold">
-                          <Link href="/matches">
+                          <Link href="/schedule">
                             <Target className="h-4 w-4 mr-2" />
                             Zadat výsledky zápasů
                           </Link>

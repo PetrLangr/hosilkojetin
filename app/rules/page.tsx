@@ -1,589 +1,471 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { 
-  Target, 
-  Users, 
-  Trophy, 
-  Shield, 
-  DollarSign,
-  Calendar,
-  FileText,
-  Phone,
-  ArrowLeft
-} from "lucide-react";
 import Link from "next/link";
+import { Download, Phone } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
+import { docUrl } from "@/lib/league-files";
+
+/** Oddíl pravidel — kotva pro obsah vlevo a stejný rámeček jako panely jinde. */
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-20 overflow-hidden rounded-lg border border-border bg-white">
+      <h2 className="border-b border-border bg-muted px-3 py-2 text-sm font-semibold text-slate-900">
+        {title}
+      </h2>
+      <div className="space-y-3 px-3 py-3 text-sm leading-relaxed text-slate-700">{children}</div>
+    </section>
+  );
+}
+
+/** Odrážkový seznam. Pravidla jsou z velké části výčty, ať vypadají stejně. */
+function List({ items }: { items: React.ReactNode[] }) {
+  return (
+    <ul className="space-y-1.5">
+      {items.map((item, i) => (
+        <li key={i} className="flex gap-2">
+          <span aria-hidden className="mt-[7px] size-1 shrink-0 rounded-full bg-primary" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Podnadpis uvnitř oddílu. */
+const Sub = ({ children }: { children: React.ReactNode }) => (
+  <h3 className="label-muted pt-1">{children}</h3>
+);
+
+const SECTIONS = [
+  { id: "podminky", label: "Podmínky účasti" },
+  { id: "poplatky", label: "Poplatky" },
+  { id: "sportovni", label: "Sportovní pravidla" },
+  { id: "prostor", label: "Hrací prostor" },
+  { id: "herni", label: "Herní pravidla" },
+  { id: "soutez", label: "Systém soutěže" },
+  { id: "body", label: "Bodování" },
+  { id: "kapitan", label: "Kapitán" },
+  { id: "prestupy", label: "Přestupy" },
+  { id: "ostatni", label: "Ostatní podmínky" },
+  { id: "zaver", label: "Závěrečná ustanovení" },
+];
 
 export default function RulesPage() {
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <section className="text-center py-12 bg-gradient-to-br from-slate-50 via-white to-rose-50 rounded-3xl border border-gray-100">
-        <div className="mb-6">
-          <Badge className="bg-primary text-white px-4 py-2 text-sm font-semibold">
-            OFICIÁLNÍ PRAVIDLA
-          </Badge>
-        </div>
-        
-        <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
-          PRAVIDLA
-          <br />
-          <span className="text-primary">HŠL</span>
-        </h1>
-        
-        <p className="text-xl text-slate-600 max-w-2xl mx-auto font-medium">
-          Kompletní pravidla a podmínky Hospodské Šipkové Ligy platná od 30.8.2024
-        </p>
-      </section>
+    <div>
+      <PageHeader
+        title="Pravidla"
+        subtitle="Hospodská šipková liga · platná od 30. 8. 2024"
+        actions={
+          <a
+            href={docUrl("pravidla-hsl-2024.doc")}
+            download
+            className="flex items-center gap-1.5 rounded-md border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-primary hover:text-primary"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Stáhnout jako DOC
+          </a>
+        }
+      />
 
-      {/* Quick Navigation */}
-      <section className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <Button variant="outline" className="rounded-xl border-primary text-primary hover:bg-primary hover:text-white font-semibold" asChild>
-            <Link href="/">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Zpět na domovskou stránku
-            </Link>
-          </Button>
-        </div>
+      <div className="grid gap-4 lg:grid-cols-4">
+        {/* Obsah — u dlouhého dokumentu je rychlejší než rolování */}
+        <nav className="lg:sticky lg:top-20 lg:self-start">
+          <div className="overflow-hidden rounded-lg border border-border bg-white">
+            <p className="label-muted border-b border-border bg-muted px-3 py-2">Obsah</p>
+            <ul className="flex flex-wrap gap-x-3 gap-y-0.5 p-2 lg:block">
+              {SECTIONS.map((s) => (
+                <li key={s.id}>
+                  <a
+                    href={`#${s.id}`}
+                    className="block rounded px-1 py-1 text-xs text-slate-600 hover:bg-muted hover:text-primary"
+                  >
+                    {s.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </nav>
 
-        <Card className="rounded-2xl bg-white border border-gray-100 card-shadow mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Rychlá navigace
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
-              <a href="#podmínky" className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
-                <div className="font-semibold text-slate-900">Podmínky účasti</div>
-                <div className="text-sm text-slate-600">Registrace a poplatky</div>
-              </a>
-              <a href="#sportovni" className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
-                <div className="font-semibold text-slate-900">Sportovní pravidla</div>
-                <div className="text-sm text-slate-600">Herní pravidla a prostory</div>
-              </a>
-              <a href="#soutez" className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
-                <div className="font-semibold text-slate-900">Systém soutěže</div>
-                <div className="text-sm text-slate-600">Utkání a bodování</div>
-              </a>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+        <div className="space-y-4 lg:col-span-3">
+          <p className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-slate-700">
+            Ligová soutěž Klubů hospodské šipkové ligy je rozdělena do dvou částí:{" "}
+            <strong>podzimní a jarní</strong>.
+          </p>
 
-      {/* Main Content */}
-      <section className="max-w-4xl mx-auto space-y-8">
-        
-        {/* Liga Info */}
-        <Card id="liga" className="rounded-2xl bg-gradient-to-br from-primary/5 via-white to-accent/5 border border-primary/10 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <Target className="h-6 w-6" />
-              Ligová soutěž klubů hospodské šipkové ligy
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg text-slate-700 leading-relaxed">
-              Ligová soutěž Klubů hospodské šipkové ligy je rozdělena do dvou částí: <strong>podzimní a jarní</strong>.
-            </p>
-          </CardContent>
-        </Card>
+          <Section id="podminky" title="Podmínky k účasti v soutěži">
+            <List
+              items={[
+                "Soutěže se může zúčastnit každý řádně přihlášený klub",
+                <>
+                  Do soutěže bude přihlášen klub na základě řádně vyplněné přihlášky. Spolu s touto
+                  přihláškou je nutné uhradit registrační poplatek <strong>2 000 Kč</strong> za družstvo
+                </>,
+                "Počet klubů na domácí půdě není omezen",
+              ]}
+            />
 
-        {/* Conditions */}
-        <Card id="podmínky" className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <Users className="h-6 w-6" />
-              Podmínky k účasti v soutěži
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                <p className="text-slate-700">Soutěže se může zúčastnit každý řádně přihlášený klub</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                <p className="text-slate-700">Do soutěže bude přihlášen klub na základě řádně vyplněné přihlášky. Spolu s touto přihláškou je nutné uhradit registrační poplatek <strong>2.000 Kč</strong> za družstvo</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                <p className="text-slate-700">Počet klubů na domácí půdě není omezen</p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 rounded-2xl p-6 border border-gray-100">
-              <h4 className="font-black text-slate-900 mb-4 flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-primary" />
-                Tým
-              </h4>
-              <ul className="space-y-3 text-slate-700">
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-accent mt-2 flex-shrink-0"></div>
+            <Sub>Tým</Sub>
+            <List
+              items={[
+                <>
                   Tým tvoří <strong>minimálně 3 hráči, maximálně 10 hráčů</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-accent mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Dopsat hráče po začátku sezóny: poplatek <strong>200 Kč</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-accent mt-2 flex-shrink-0"></div>
-                  Nový hráč může nastoupit k následujícímu zápasu po zapsání na soupisku
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-accent mt-2 flex-shrink-0"></div>
-                  Týmy se můžou dohodnout na přeložení zápasu (3 pracovní dny předem)
-                </li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+                </>,
+                "Nový hráč může nastoupit k následujícímu zápasu po zapsání na soupisku",
+                "Týmy se můžou dohodnout na přeložení zápasu (3 pracovní dny předem)",
+              ]}
+            />
 
-        {/* Fees */}
-        <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <DollarSign className="h-6 w-6" />
-              Registrační poplatky
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl p-6 border border-primary/20">
-                <div className="text-center">
-                  <div className="text-3xl font-black text-primary mb-2">2.000 Kč</div>
-                  <div className="font-bold text-slate-900">Za klub na sezónu</div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-accent/5 to-accent/10 rounded-2xl p-6 border border-accent/20">
-                <div className="text-center">
-                  <div className="text-3xl font-black text-accent mb-2">200 Kč</div>
-                  <div className="font-bold text-slate-900">Za hráče v průběhu sezóny</div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-muted-foreground">
+              Přihlášku ke stažení najdete v{" "}
+              <Link href="/contact" className="underline hover:text-primary">
+                kontaktech
+              </Link>
+              .
+            </p>
+          </Section>
 
-        {/* Sports Rules */}
-        <Card id="sportovni" className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <Target className="h-6 w-6" />
-              Sportovní pravidla HŠL
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-6 border">
-              <h4 className="font-black text-slate-900 mb-4">A. Obecná ustanovení</h4>
-              <ul className="space-y-3 text-slate-700">
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                  Soutěže družstev se hrají podle předem stanovených sportovních pravidel a soutěžního řádu HŠL
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+          <Section id="poplatky" title="Registrační poplatky">
+            <dl className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded border border-border bg-muted px-3 py-2">
+                <dt className="label-muted">Za klub na sezónu</dt>
+                <dd className="tnum text-base font-bold text-slate-900">2 000 Kč</dd>
+              </div>
+              <div className="rounded border border-border bg-muted px-3 py-2">
+                <dt className="label-muted">Za hráče v průběhu sezóny</dt>
+                <dd className="tnum text-base font-bold text-slate-900">200 Kč</dd>
+              </div>
+            </dl>
+          </Section>
+
+          <Section id="sportovni" title="Sportovní pravidla HŠL">
+            <Sub>A. Obecná ustanovení</Sub>
+            <List
+              items={[
+                "Soutěže družstev se hrají podle předem stanovených sportovních pravidel a soutěžního řádu HŠL",
+                <>
                   Domácí družstvo musí zajistit <strong>minimálně 6 míst k sezení</strong> s výhledem na terč
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Domácí tým musí umožnit hostům <strong>15 minut</strong> před utkáním přístup k terči k tréninku
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Čekací doba na tým je <strong>30 minut</strong>
-                </li>
-              </ul>
-            </div>
+                </>,
+              ]}
+            />
 
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-                <h5 className="font-bold text-blue-900 mb-2">Leg</h5>
-                <p className="text-sm text-blue-800">Jedna konkrétní hra, složená z několika kol mezi hráči</p>
-              </div>
-              <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
-                <h5 className="font-bold text-green-900 mb-2">Zápas</h5>
-                <p className="text-sm text-green-800">Odehrání předem stanoveného počtu legů mezi hráči</p>
-              </div>
-              <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
-                <h5 className="font-bold text-purple-900 mb-2">Utkání</h5>
-                <p className="text-sm text-purple-800">Odehrání předem stanoveného počtu zápasů mezi týmy</p>
-              </div>
-            </div>
+            <Sub>Pojmy</Sub>
+            <dl className="grid gap-2 sm:grid-cols-3">
+              {[
+                ["Leg", "Jedna konkrétní hra, složená z několika kol mezi hráči"],
+                ["Zápas", "Odehrání předem stanoveného počtu legů mezi hráči"],
+                ["Utkání", "Odehrání předem stanoveného počtu zápasů mezi týmy"],
+              ].map(([term, def]) => (
+                <div key={term} className="rounded border border-border bg-muted px-3 py-2">
+                  <dt className="text-xs font-semibold text-slate-900">{term}</dt>
+                  <dd className="mt-0.5 text-xs text-muted-foreground">{def}</dd>
+                </div>
+              ))}
+            </dl>
 
-            <div className="bg-warning/10 rounded-2xl p-6 border border-warning/30">
-              <h4 className="font-black text-slate-900 mb-4 flex items-center gap-2">
-                <Shield className="h-5 w-5 text-warning" />
-                Zdravotní zóna
-              </h4>
-              <p className="text-slate-700 mb-2">
-                <strong>Území, ve kterém je při utkání zakázáno kouření.</strong>
-              </p>
-              <ul className="text-sm text-slate-600 space-y-1">
-                <li>• DO = double out - ukončování hry dvojnásobným polem</li>
-                <li>• DIN = double in - zahájení hry dvojnásobným polem</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+            <Sub>Zdravotní zóna</Sub>
+            <p>
+              <strong>Území, ve kterém je při utkání zakázáno kouření.</strong>
+            </p>
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              <li>DO = double out — ukončování hry dvojnásobným polem</li>
+              <li>DIN = double in — zahájení hry dvojnásobným polem</li>
+            </ul>
+          </Section>
 
-        {/* Playing Space */}
-        <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Target className="h-5 w-5" />
-              Hrací prostor a technické požadavky
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-6">
+          <Section id="prostor" title="Hrací prostor a technické požadavky">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <h4 className="font-bold text-slate-900 mb-3">Rozměry hracího prostoru</h4>
-                <ul className="space-y-2 text-slate-700 text-sm">
-                  <li>• Vzdálenost za hrací čárou: <strong>min 80 cm</strong></li>
-                  <li>• Vzdálenost od terče: <strong>3,60 m</strong></li>
-                  <li>• Šířka hracího prostoru: <strong>min 1,2 m</strong></li>
-                  <li>• Výška místnosti: <strong>min 2,30 m</strong></li>
-                  <li>• Vzdálenost od boční stěny: <strong>min 80 cm</strong></li>
-                </ul>
+                <Sub>Rozměry hracího prostoru</Sub>
+                <dl className="mt-1 space-y-1">
+                  {[
+                    ["Vzdálenost za hrací čárou", "min. 80 cm"],
+                    ["Vzdálenost od terče", "3,60 m"],
+                    ["Šířka hracího prostoru", "min. 1,2 m"],
+                    ["Výška místnosti", "min. 2,30 m"],
+                    ["Vzdálenost od boční stěny", "min. 80 cm"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-3 border-b border-border pb-1 text-xs last:border-0">
+                      <dt className="text-slate-600">{k}</dt>
+                      <dd className="tnum shrink-0 font-semibold text-slate-900">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
               <div>
-                <h4 className="font-bold text-slate-900 mb-3">Terč a čára hodu</h4>
-                <ul className="space-y-2 text-slate-700 text-sm">
-                  <li>• Výška středu terče: <strong>1,73 m (±1,5 cm)</strong></li>
-                  <li>• Úhlopříčná vzdálenost: <strong>2,935 m</strong></li>
-                  <li>• Kolmá vzdálenost: <strong>2,37 m</strong></li>
-                  <li>• Šířka čáry hodu: <strong>min 25 cm</strong></li>
-                </ul>
+                <Sub>Terč a čára hodu</Sub>
+                <dl className="mt-1 space-y-1">
+                  {[
+                    ["Výška středu terče", "1,73 m (±1,5 cm)"],
+                    ["Úhlopříčná vzdálenost", "2,935 m"],
+                    ["Kolmá vzdálenost", "2,37 m"],
+                    ["Šířka čáry hodu", "min. 25 cm"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-3 border-b border-border pb-1 text-xs last:border-0">
+                      <dt className="text-slate-600">{k}</dt>
+                      <dd className="tnum shrink-0 font-semibold text-slate-900">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </Section>
 
-        {/* Game Rules */}
-        <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Trophy className="h-5 w-5" />
-              Herní pravidla
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="bg-slate-50 rounded-2xl p-6">
-              <h4 className="font-black text-slate-900 mb-4">Základní pravidla hodu</h4>
-              <ul className="space-y-3 text-slate-700">
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+          <Section id="herni" title="Herní pravidla">
+            <Sub>Základní pravidla hodu</Sub>
+            <List
+              items={[
+                <>
                   Pro každé kolo má hráč k dispozici <strong>maximálně 3 šipky</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Hod se provádí <strong>vstoje</strong> (výjimka jen při zdravotním handicapu)
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Šipka mimo terč se považuje za <strong>uskutečněný hod</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Hráč si musí před hodem <strong>překontrolovat správné nastavení</strong> přístroje
-                </li>
-              </ul>
-            </div>
+                </>,
+              ]}
+            />
 
-            <div className="bg-accent/10 rounded-2xl p-6 border border-accent/20">
-              <h4 className="font-black text-slate-900 mb-4">Rozhoz na střed</h4>
-              <ul className="space-y-3 text-slate-700">
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-accent mt-2 flex-shrink-0"></div>
+            <Sub>Rozhoz na střed</Sub>
+            <List
+              items={[
+                <>
                   Hráč má k dispozici <strong>max. 3 šipky</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-accent mt-2 flex-shrink-0"></div>
-                  Platí <strong>první zabodnutá šipka</strong> - další už nesmí hávet
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-accent mt-2 flex-shrink-0"></div>
+                </>,
+                <>
+                  Platí <strong>první zabodnutá šipka</strong> — další už nesmí házet
+                </>,
+                <>
                   Vítězí hráč s šipkou <strong>blíže středu terče</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-accent mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Při stejné vzdálenosti nebo oba červený/modrý střed: <strong>rozhazuje se znovu</strong>
-                </li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+                </>,
+              ]}
+            />
+          </Section>
 
-        {/* Competition System */}
-        <Card id="soutez" className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <Trophy className="h-6 w-6" />
-              Systém ligové soutěže
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl p-6 border">
-              <h4 className="font-black text-slate-900 mb-4">Ligové utkání HŠL</h4>
-              <ul className="space-y-3 text-slate-700">
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-green-600 mt-2 flex-shrink-0"></div>
+          <Section id="soutez" title="Systém ligové soutěže">
+            <Sub>Ligové utkání HŠL</Sub>
+            <List
+              items={[
+                <>
                   K utkání nastupují <strong>3 hráči základní sestavy + až 3 náhradníci</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-green-600 mt-2 flex-shrink-0"></div>
-                  Výjimečně může nastoupit jen <strong>2 hráči</strong> (třetí pozice je neobsazena)
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-green-600 mt-2 flex-shrink-0"></div>
-                  Utkání se skládá z <strong>9 zápasů jednotlivců + 6 zápasů teamů</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-green-600 mt-2 flex-shrink-0"></div>
+                </>,
+                <>
+                  Výjimečně můžou nastoupit jen <strong>2 hráči</strong> (třetí pozice je neobsazena)
+                </>,
+                <>
+                  Utkání se skládá z <strong>9 zápasů jednotlivců + 6 zápasů týmů</strong>
+                </>,
+                <>
                   Základní hra: <strong>501 Double Out na 2 vítězné legy</strong>
-                </li>
-              </ul>
-            </div>
+                </>,
+              ]}
+            />
 
-            <div className="bg-warning/10 rounded-2xl p-6 border border-warning/30">
-              <h4 className="font-black text-slate-900 mb-4">Speciální hry</h4>
-              <div className="grid gap-4">
-                <div>
-                  <h5 className="font-bold text-slate-900 mb-2">Cricket Cut Throat</h5>
-                  <p className="text-slate-700 text-sm">Hraje se <strong>15 kol</strong> na dva displeje. Vítězem jsou hráči, kteří uzavřou všechna čísla a mají stejně nebo méně bodů než soupeř.</p>
+            <Sub>Speciální hry</Sub>
+            <dl className="space-y-2">
+              {[
+                [
+                  "Cricket Cut Throat",
+                  <>
+                    Hraje se <strong>15 kol</strong> na dva displeje. Vítězem jsou hráči, kteří uzavřou
+                    všechna čísla a mají stejně nebo méně bodů než soupeř.
+                  </>,
+                ],
+                [
+                  "301 DIN/DO (3v3)",
+                  <>
+                    Hraje se na <strong>2 vítězné legy</strong>, každý má svůj displej. Maximální počet
+                    kol je 10, pak rozhoz na střed.
+                  </>,
+                ],
+                [
+                  "701 DO (vláček)",
+                  <>
+                    Hra na <strong>1 leg</strong>, tři proti třem na 1 displej. Maximální počet kol je
+                    20, pak rozhoz na střed.
+                  </>,
+                ],
+              ].map(([term, def], i) => (
+                <div key={i} className="rounded border border-border bg-muted px-3 py-2">
+                  <dt className="text-xs font-semibold text-slate-900">{term}</dt>
+                  <dd className="mt-0.5 text-xs text-slate-600">{def}</dd>
                 </div>
-                <div>
-                  <h5 className="font-bold text-slate-900 mb-2">301 DIN/DO (3v3)</h5>
-                  <p className="text-slate-700 text-sm">Hraje se na <strong>2 vítězné legy</strong>, každý má svůj displej. Maximální počet kol je 10, pak rozhoz na střed.</p>
+              ))}
+            </dl>
+          </Section>
+
+          <Section id="body" title="Bodové hodnocení">
+            <dl className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {[
+                ["3", "Vítězství", "text-success"],
+                ["2", "Výhra v prodl.", "text-slate-900"],
+                ["1", "Remíza", "text-slate-900"],
+                ["0", "Prohra", "text-muted-foreground"],
+                ["−3", "Kontumace", "text-destructive"],
+              ].map(([value, label, tone]) => (
+                <div key={label} className="rounded border border-border bg-muted px-2 py-2 text-center">
+                  <dt className={`tnum text-lg font-bold ${tone}`}>{value}</dt>
+                  <dd className="label-muted">{label}</dd>
                 </div>
-                <div>
-                  <h5 className="font-bold text-slate-900 mb-2">701 DO (vláček)</h5>
-                  <p className="text-slate-700 text-sm">Hra na <strong>1 leg</strong>, tři proti třem na 1 displej. Maximální počet kol je 20, pak rozhoz na střed.</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              ))}
+            </dl>
 
-        {/* Scoring */}
-        <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Trophy className="h-5 w-5" />
-              Bodové hodnocení
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="bg-green-50 rounded-2xl p-4 text-center border border-green-100">
-                <div className="text-2xl font-black text-green-600">3</div>
-                <div className="text-xs font-semibold text-green-800">VÍTĚZSTVÍ</div>
-              </div>
-              <div className="bg-blue-50 rounded-2xl p-4 text-center border border-blue-100">
-                <div className="text-2xl font-black text-blue-600">2</div>
-                <div className="text-xs font-semibold text-blue-800">VÝHRA V PRODL.</div>
-              </div>
-              <div className="bg-yellow-50 rounded-2xl p-4 text-center border border-yellow-100">
-                <div className="text-2xl font-black text-yellow-600">1</div>
-                <div className="text-xs font-semibold text-yellow-800">REMÍZA</div>
-              </div>
-              <div className="bg-gray-50 rounded-2xl p-4 text-center border border-gray-100">
-                <div className="text-2xl font-black text-gray-600">0</div>
-                <div className="text-xs font-semibold text-gray-800">PROHRA</div>
-              </div>
-              <div className="bg-red-50 rounded-2xl p-4 text-center border border-red-100">
-                <div className="text-2xl font-black text-red-600">-3</div>
-                <div className="text-xs font-semibold text-red-800">KONTUMACE</div>
-              </div>
-            </div>
+            <Sub>Pořadí v tabulce</Sub>
+            <ol className="space-y-1 text-sm">
+              <li>1. <strong>Body</strong></li>
+              <li>2. <strong>Vzájemný zápas</strong></li>
+              <li>3. <strong>Skóre (rozdíl legů)</strong></li>
+            </ol>
+            <p className="text-xs text-muted-foreground">
+              Aktuální pořadí najdete v{" "}
+              <Link href="/standings" className="underline hover:text-primary">
+                tabulce
+              </Link>
+              .
+            </p>
+          </Section>
 
-            <div className="bg-slate-50 rounded-2xl p-6 border border-gray-100 mt-6">
-              <h4 className="font-bold text-slate-900 mb-3">Pořadí v tabulce</h4>
-              <ol className="space-y-2 text-slate-700">
-                <li>1. <strong>Body</strong></li>
-                <li>2. <strong>Vzájemný zápas</strong></li>
-                <li>3. <strong>Skóre (rozdíl legů)</strong></li>
-              </ol>
-            </div>
-          </CardContent>
-        </Card>
+          <Section id="kapitan" title="Kapitán družstva">
+            <Sub>Povinnosti kapitána</Sub>
+            <List
+              items={[
+                <>
+                  Společně s kapitánem soupeře <strong>řídí ligové utkání a plní funkci rozhodčího</strong>
+                </>,
+                <>
+                  Určuje <strong>nasazení hráčů</strong> svého družstva do zápisu
+                </>,
+                <>
+                  Je <strong>přítomen po celý průběh</strong> utkání nebo určí zástupce
+                </>,
+                <>
+                  <strong>Zodpovídá za správnost</strong> zápisu z utkání
+                </>,
+                <>
+                  Zápis musí <strong>poslat do neděle 12:00</strong> po skončení zápasu
+                </>,
+              ]}
+            />
+          </Section>
 
-        {/* Captain Rules */}
-        <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Shield className="h-5 w-5" />
-              Kapitán družstva
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="bg-primary/5 rounded-2xl p-6 border border-primary/20">
-                <h4 className="font-black text-slate-900 mb-4">Povinnosti kapitána</h4>
-                <ul className="space-y-3 text-slate-700">
-                  <li className="flex items-start gap-3">
-                    <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    Společně s kapitánem soupeře <strong>řídí ligové utkání a plní funkci rozhodčího</strong>
+          <Section id="prestupy" title="Přestupový řád">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded border border-border bg-muted px-3 py-2">
+                <p className="label-muted mb-1">Bezplatné přestupy</p>
+                <ul className="space-y-1 text-xs text-slate-700">
+                  <li>Po skončení kalendářního ročníku</li>
+                  <li>
+                    Letní termín: <strong>1. 5. – 31. 8.</strong>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    Určuje <strong>nasazení hráčů</strong> svého družstva do zápisu
+                </ul>
+              </div>
+              <div className="rounded border border-border bg-muted px-3 py-2">
+                <p className="label-muted mb-1">Zpoplatněné přestupy</p>
+                <ul className="space-y-1 text-xs text-slate-700">
+                  <li>
+                    Po podzimní části do <strong>31. 12.</strong>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    Je <strong>přítomen po celý průběh</strong> utkání nebo určí zástupce
+                  <li>
+                    Poplatek: <strong>100 Kč</strong>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    <strong>Zodpovídá za správnost</strong> zápisu z utkání
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    Zápis musí <strong>poslat do neděle 12:00</strong> po skončení zápasu
+                  <li>
+                    Hráč může přestoupit <strong>pouze jednou za sezónu</strong>
                   </li>
                 </ul>
               </div>
             </div>
-          </CardContent>
-        </Card>
+            <p className="rounded border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm font-medium text-destructive">
+              Hostování není povoleno.
+            </p>
+          </Section>
 
-        {/* Transfers */}
-        <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Calendar className="h-5 w-5" />
-              Přestupový řád
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-green-50 rounded-2xl p-6 border border-green-100">
-                <h4 className="font-bold text-green-900 mb-4">Bezplatné přestupy</h4>
-                <ul className="space-y-2 text-green-800 text-sm">
-                  <li>• Po skončení kalendářního ročníku</li>
-                  <li>• Letní termín: <strong>1.5. - 31.8.</strong></li>
-                </ul>
-              </div>
-              <div className="bg-orange-50 rounded-2xl p-6 border border-orange-100">
-                <h4 className="font-bold text-orange-900 mb-4">Zpoplatněné přestupy</h4>
-                <ul className="space-y-2 text-orange-800 text-sm">
-                  <li>• Po podzimní části do <strong>31.12.</strong></li>
-                  <li>• Poplatek: <strong>100 Kč</strong></li>
-                  <li>• Hráč může přestoupit <strong>pouze jednou za sezónu</strong></li>
-                </ul>
-              </div>
-            </div>
-            
-            <div className="bg-red-50 rounded-2xl p-4 border border-red-100 text-center">
-              <h4 className="font-bold text-red-900 mb-2">Hostování</h4>
-              <p className="text-red-800 font-medium">Hostování není povoleno</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Additional Rules */}
-        <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <FileText className="h-5 w-5" />
-              Ostatní podmínky
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <h4 className="font-bold text-slate-900 mb-4">Změny v sezóně</h4>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <h5 className="font-semibold text-slate-900 mb-2">Změna názvu týmu</h5>
-                  <p className="text-sm text-slate-700">Mimo sezónu: <strong>0 Kč</strong></p>
-                  <p className="text-sm text-slate-700">V sezóně: <strong>500 Kč</strong></p>
+          <Section id="ostatni" title="Ostatní podmínky">
+            <Sub>Změny v sezóně</Sub>
+            <dl className="grid gap-2 sm:grid-cols-2">
+              {["Změna názvu týmu", "Změna hracího místa"].map((label) => (
+                <div key={label} className="rounded border border-border bg-muted px-3 py-2">
+                  <dt className="text-xs font-semibold text-slate-900">{label}</dt>
+                  <dd className="mt-0.5 text-xs text-slate-600">
+                    Mimo sezónu <strong>0 Kč</strong> · v sezóně <strong>500 Kč</strong>
+                  </dd>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <h5 className="font-semibold text-slate-900 mb-2">Změna hracího místa</h5>
-                  <p className="text-sm text-slate-700">Mimo sezónu: <strong>0 Kč</strong></p>
-                  <p className="text-sm text-slate-700">V sezóně: <strong>500 Kč</strong></p>
-                </div>
-              </div>
-            </div>
+              ))}
+            </dl>
 
-            <div className="bg-primary/5 rounded-2xl p-6 border border-primary/20">
-              <h4 className="font-black text-slate-900 mb-4">Dodatečná pravidla</h4>
-              <ul className="space-y-3 text-slate-700">
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+            <Sub>Dodatečná pravidla</Sub>
+            <List
+              items={[
+                <>
                   Na soupisce může být <strong>maximálně jeden extraligový hráč</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Credity na zápas vždy platí <strong>domácí tým</strong>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Občerstvení připravuje <strong>domácí tým pro hosty</strong> (netýká se alkoholu)
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                </>,
+                <>
                   Každý tým daruje cenu na ukončenou v hodnotě <strong>500 Kč</strong>
-                </li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+                </>,
+              ]}
+            />
+          </Section>
 
-        {/* Final Provisions */}
-        <Card className="rounded-2xl bg-gradient-to-br from-slate-50 to-white border border-gray-100 card-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Shield className="h-5 w-5" />
-              Závěrečná ustanovení
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="size-2 rounded-full bg-slate-600 mt-2 flex-shrink-0"></div>
-                <p className="text-slate-700">HŠL si vyhrazuje právo v průběhu sezóny <strong>změnit, upravit či doplnit pravidla</strong></p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="size-2 rounded-full bg-slate-600 mt-2 flex-shrink-0"></div>
-                <p className="text-slate-700">Doplňující krajská pravidla budou v souladu s <strong>principem Fair Play</strong></p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="size-2 rounded-full bg-slate-600 mt-2 flex-shrink-0"></div>
-                <p className="text-slate-700">Pravidla byla aktualizována <strong>30.8.2024</strong></p>
-              </div>
-            </div>
+          <Section id="zaver" title="Závěrečná ustanovení">
+            <List
+              items={[
+                <>
+                  HŠL si vyhrazuje právo v průběhu sezóny{" "}
+                  <strong>změnit, upravit či doplnit pravidla</strong>
+                </>,
+                <>
+                  Doplňující krajská pravidla budou v souladu s <strong>principem Fair Play</strong>
+                </>,
+                <>
+                  Pravidla byla aktualizována <strong>30. 8. 2024</strong>
+                </>,
+              ]}
+            />
 
-            <div className="bg-gradient-to-r from-primary to-accent rounded-2xl p-6 text-white mt-6">
-              <div className="text-center">
-                <h4 className="font-black text-white mb-3 flex items-center justify-center gap-2">
-                  <Phone className="h-5 w-5" />
-                  Kontakt na ředitele soutěže
-                </h4>
-                <div className="text-lg font-bold">Ladislav Kučírek</div>
-                <div className="text-white/90">777 852 277</div>
-                <p className="text-sm text-white/80 mt-2">
-                  Pro jakékoliv dotazy nebo nejasnosti v průběhu ligy
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-border bg-muted px-3 py-2">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-900">
+                <Phone className="h-3.5 w-3.5 text-primary" />
+                Ředitel soutěže
+              </span>
+              <span className="text-sm font-medium text-slate-900">Ladislav Kučírek</span>
+              <a href="tel:+420777852277" className="tnum text-sm text-primary hover:underline">
+                777 852 277
+              </a>
+              <span className="text-xs text-muted-foreground">
+                pro dotazy a nejasnosti v průběhu ligy
+              </span>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Back to site */}
-        <div className="text-center py-12">
-          <Button asChild className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold px-8 py-4 text-lg">
-            <Link href="/">
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Zpět na domovskou stránku
-            </Link>
-          </Button>
+          </Section>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

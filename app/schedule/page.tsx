@@ -1,344 +1,362 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, Target, Clock } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import { Edit, Target } from "lucide-react";
 import { getTeamLogo, getTeamGradient } from '@/lib/team-logos';
+import { readResult } from '@/lib/standings';
+import { PageHeader } from '@/components/layout/page-header';
+import { SeasonSwitcher, ArchiveBanner, type SeasonOption } from '@/components/layout/season-switcher';
+
+type Status = 'vse' | 'odehrane' | 'naplanovane';
+
+const dayMonth = (d: string) =>
+  new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+
+const weekdayDate = (d: string) =>
+  new Date(d).toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'long' });
+
+/** Logo týmu s náhradou na barevnou zkratku, když obrázek chybí. */
+function TeamMark({ name, shortName }: { name: string; shortName?: string }) {
+  return (
+    <span className="size-5 shrink-0 overflow-hidden rounded border border-border bg-white">
+      <img
+        src={getTeamLogo(name)}
+        alt=""
+        className="h-full w-full object-contain"
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          target.style.display = 'none';
+          const fallback = target.parentElement;
+          if (fallback) {
+            fallback.className = `size-5 shrink-0 rounded bg-gradient-to-br ${getTeamGradient(name)} grid place-items-center text-white`;
+            fallback.innerHTML = `<span class="text-[8px] font-bold">${
+              shortName || name.split(' ').map((w: string) => w[0]).join('').slice(0, 3).toUpperCase()
+            }</span>`;
+          }
+        }}
+      />
+    </span>
+  );
+}
+
+/**
+ * Jeden zápas: domácí vpravo zarovnaní ke skóre, hosté vlevo — čte se zevnitř ven.
+ * `lead` je datum nebo číslo kola podle toho, v jakém režimu se řádek zobrazuje.
+ */
+function MatchRow({
+  match,
+  lead,
+  highlightTeamId,
+  isAdmin,
+}: {
+  match: any;
+  lead?: string;
+  highlightTeamId?: string;
+  isAdmin?: boolean;
+}) {
+  const score = match.result ? readResult(match.result) : null;
+  const played = Boolean(match.endTime);
+  const homeWon = score && score.homeGamesWon > score.awayGamesWon;
+  const awayWon = score && score.awayGamesWon > score.homeGamesWon;
+  const homePicked = highlightTeamId && match.homeTeam.id === highlightTeamId;
+  const awayPicked = highlightTeamId && match.awayTeam.id === highlightTeamId;
+
+  const nameClass = (picked?: boolean | string, won?: boolean | null) =>
+    picked ? 'font-semibold text-primary'
+    : won ? 'font-semibold text-slate-900'
+    : 'text-slate-600';
+
+  return (
+    <li className="flex items-center gap-2 px-3 py-1.5 hover:bg-rose-50/50">
+      <span className="tnum w-12 shrink-0 text-[11px] text-muted-foreground">{lead ?? ''}</span>
+
+      <Link href={`/match/${match.id}`} className={`flex-1 truncate text-right text-xs hover:underline ${nameClass(homePicked, homeWon)}`}>
+        {match.homeTeam.name}
+      </Link>
+      <TeamMark name={match.homeTeam.name} shortName={match.homeTeam.shortName} />
+
+      {played && score ? (
+        <Link
+          href={`/match/${match.id}`}
+          className="tnum shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-900 hover:bg-slate-200"
+        >
+          {score.homeGamesWon}:{score.awayGamesWon}
+        </Link>
+      ) : (
+        <span className="shrink-0 px-1.5 text-[11px] text-muted-foreground">vs</span>
+      )}
+
+      <TeamMark name={match.awayTeam.name} shortName={match.awayTeam.shortName} />
+      <Link href={`/match/${match.id}`} className={`flex-1 truncate text-xs hover:underline ${nameClass(awayPicked, awayWon)}`}>
+        {match.awayTeam.name}
+      </Link>
+
+      {isAdmin && (
+        <Button asChild size="sm" variant="outline" className="ml-1 h-6 shrink-0 rounded px-1.5 text-[11px]">
+          <Link href={`/match/${match.id}`}>
+            <Edit className="mr-1 h-3 w-3" />
+            {played ? 'Upravit' : 'Zadat'}
+          </Link>
+        </Button>
+      )}
+    </li>
+  );
+}
+
+const selectClass =
+  "h-8 rounded-md border border-border bg-white pl-2 pr-7 text-sm font-medium text-slate-900 hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
 
 export default function Schedule() {
   const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [season, setSeason] = useState<SeasonOption | null>(null);
+  const [teamId, setTeamId] = useState('');
+  const [status, setStatus] = useState<Status>('vse');
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
 
   useEffect(() => {
+    if (!season) return;
+    let cancelled = false;
+
     async function fetchMatches() {
+      setLoading(true);
       try {
-        const response = await fetch('/api/matches');
+        const response = await fetch(`/api/matches?season=${encodeURIComponent(season!.id)}`);
         if (response.ok) {
-          const matchesData = await response.json();
-          setMatches(matchesData);
+          const data = await response.json();
+          if (!cancelled) {
+            setMatches(data);
+            setTeamId('');
+            setStatus('vse');
+          }
         }
       } catch (error) {
         console.error('Error fetching matches:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     fetchMatches();
-  }, []);
+    return () => { cancelled = true; };
+  }, [season]);
 
-  // Group matches by round
-  const matchesByRound = matches.reduce((acc: any, match: any) => {
-    const round = match.round || 1;
-    if (!acc[round]) {
-      acc[round] = [];
-    }
-    acc[round].push(match);
+  const teams = useMemo(() => {
+    const map = new Map<string, string>();
+    matches.forEach((m: any) => {
+      map.set(m.homeTeam.id, m.homeTeam.name);
+      map.set(m.awayTeam.id, m.awayTeam.name);
+    });
+    return [...map].map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  }, [matches]);
+
+  const filtered = useMemo(
+    () =>
+      matches.filter((m: any) => {
+        if (teamId && m.homeTeam.id !== teamId && m.awayTeam.id !== teamId) return false;
+        if (status === 'odehrane' && !m.endTime) return false;
+        if (status === 'naplanovane' && m.endTime) return false;
+        return true;
+      }),
+    [matches, teamId, status]
+  );
+
+  const byRound = filtered.reduce((acc: Record<number, any[]>, m: any) => {
+    const r = m.round ?? 1;
+    (acc[r] ||= []).push(m);
     return acc;
   }, {});
+  const rounds = Object.keys(byRound).map(Number).sort((a, b) => a - b);
 
-  // Sort rounds and determine current/previous/upcoming based on date
-  const sortedRounds = Object.keys(matchesByRound)
-    .map(Number)
-    .sort((a, b) => a - b);
+  // "Nejbližší" = kolo, ve kterém ještě něco nebylo odehráno. Dřív se sem dosazovalo
+  // poslední kolo podle data, takže dohraná sezóna hlásila 22. kolo jako aktuální.
+  const allRounds = [...new Set(matches.map((m: any) => m.round ?? 1))].sort((a, b) => a - b);
+  const nextRound = allRounds.find((r) => matches.some((m: any) => (m.round ?? 1) === r && !m.endTime));
+  const playedCount = matches.filter((m: any) => m.endTime).length;
 
-  const now = new Date();
-
-  // Find current round (first round with date >= today, or last completed if all past)
-  let currentRound = sortedRounds[0];
-  for (const round of sortedRounds) {
-    const roundMatches = matchesByRound[round];
-    const firstMatch = roundMatches[0];
-    if (firstMatch?.startTime) {
-      const matchDate = new Date(firstMatch.startTime);
-      // If match date is today or in future, this is current/upcoming
-      if (matchDate >= new Date(now.toDateString())) {
-        currentRound = round;
-        break;
-      }
-      // Otherwise keep checking, last one before today becomes current
-      currentRound = round;
-    }
-  }
-
-  // Check if current round is fully completed (all matches have results)
-  const currentRoundMatches = matchesByRound[currentRound] || [];
-  const allCompleted = currentRoundMatches.every((m: any) => m.result);
-
-  // If current round is completed and there's a next round, move to next
-  if (allCompleted && sortedRounds.indexOf(currentRound) < sortedRounds.length - 1) {
-    currentRound = sortedRounds[sortedRounds.indexOf(currentRound) + 1];
-  }
-
-  const previousRounds = sortedRounds.filter(round => round < currentRound);
-  const upcomingRounds = sortedRounds.filter(round => round > currentRound);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Target className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-slate-600">Načítám rozpis...</p>
-        </div>
-      </div>
-    );
-  }
+  const filtering = Boolean(teamId) || status !== 'vse';
+  // Filtrování je hledání, a výsledky hledání se čtou jako seznam. Seskupení po kolech
+  // by při filtru na tým dalo 22 sekcí po jednom zápase.
+  const flat = filtering
+    ? [...filtered].sort((a: any, b: any) => (b.round ?? 0) - (a.round ?? 0))
+    : [];
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      {/* Hero Section */}
-      <div className="text-center py-8 md:py-12 bg-gradient-to-br from-slate-50 to-white rounded-xl md:rounded-2xl border border-gray-100 card-shadow px-4">
-        <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-slate-900 mb-1 md:mb-2 tracking-tight">
-          ROZPIS <span className="text-primary">KOL</span>
-        </h1>
-        <p className="text-sm md:text-lg text-slate-600">
-          Harmonogram sezóny 2025/2026
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        title="Zápasy"
+        subtitle={
+          season
+            ? `${season.name} · ${allRounds.length} kol · ${playedCount}/${matches.length} odehráno`
+            : '…'
+        }
+        actions={<SeasonSwitcher value={season?.id ?? null} onChange={setSeason} />}
+      >
+        {season && <ArchiveBanner season={season} />}
+      </PageHeader>
 
-      {/* Current Round - Full Width */}
-      {matchesByRound[currentRound] && (
-        <div className="space-y-4 md:space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="size-10 md:size-12 rounded-xl md:rounded-2xl bg-primary grid place-items-center text-white font-black text-lg md:text-xl">
-              {currentRound}
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-black text-slate-900">AKTUÁLNÍ KOLO</h2>
-              <p className="text-slate-600 text-sm md:text-base">
-                {matchesByRound[currentRound][0]?.startTime
-                  ? new Date(matchesByRound[currentRound][0].startTime).toLocaleDateString('cs-CZ', {
-                      day: 'numeric',
-                      month: 'long'
-                    })
-                  : 'Datum bude upřesněn'
-                }
-              </p>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-3 md:gap-6">
-            {matchesByRound[currentRound].map((match: any) => (
-              <Card key={match.id} className="rounded-xl md:rounded-2xl bg-white border border-gray-100 card-shadow hover:shadow-lg transition-all duration-300 group">
-                <CardContent className="p-0">
-                  {/* Score on top */}
-                  {match.result && (
-                    <div className="bg-primary text-white text-center py-2 md:py-3 rounded-t-xl md:rounded-t-2xl">
-                      <div className="font-black text-xl md:text-2xl">
-                        {typeof match.result === 'object' && (match.result?.homeWins !== undefined || match.result?.homeScore !== undefined)
-                          ? `${match.result.homeWins ?? match.result.homeScore} : ${match.result.awayWins ?? match.result.awayScore}`
-                          : 'TBD'
-                        }
-                      </div>
-                    </div>
-                  )}
-                  <div className="relative bg-gradient-to-r from-slate-50/50 via-white to-slate-50/50 p-3 md:p-6">
-                    {/* Mobile: Vertical layout */}
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
-                      {/* Home Team */}
-                      <div className="flex items-center gap-3 md:gap-4">
-                        <div className="size-10 md:size-12 rounded-lg bg-white shadow-sm border border-slate-200 p-1 shrink-0">
-                          <img
-                            src={getTeamLogo(match.homeTeam.name)}
-                            alt={match.homeTeam.name}
-                            className="w-full h-full object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const fallback = target.parentElement;
-                              if (fallback) {
-                                fallback.className = `size-10 md:size-12 rounded-lg bg-gradient-to-br ${getTeamGradient(match.homeTeam.name)} grid place-items-center text-white shadow-sm`;
-                                fallback.innerHTML = `<span class="font-black text-xs md:text-sm">${match.homeTeam.shortName || 'HOM'}</span>`;
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-black text-sm md:text-lg text-slate-900 truncate">{match.homeTeam.name}</div>
-                          <div className="text-xs md:text-sm text-muted-foreground">DOMÁCÍ</div>
-                        </div>
-                      </div>
-
-                      {/* VS - only when no result (hidden on mobile, shown inline on desktop) */}
-                      {!match.result && (
-                        <div className="hidden md:block text-3xl font-black text-slate-400">VS</div>
-                      )}
-
-                      {/* Away Team */}
-                      <div className="flex items-center gap-3 md:gap-4 md:flex-row-reverse">
-                        <div className="size-10 md:size-12 rounded-lg bg-white shadow-sm border border-slate-200 p-1 shrink-0">
-                          <img
-                            src={getTeamLogo(match.awayTeam.name)}
-                            alt={match.awayTeam.name}
-                            className="w-full h-full object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const fallback = target.parentElement;
-                              if (fallback) {
-                                fallback.className = `size-10 md:size-12 rounded-lg bg-gradient-to-br ${getTeamGradient(match.awayTeam.name)} grid place-items-center text-white shadow-sm`;
-                                fallback.innerHTML = `<span class="font-black text-xs md:text-sm">${match.awayTeam.shortName || 'AWY'}</span>`;
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1 md:text-right">
-                          <div className="font-black text-sm md:text-lg text-slate-900 truncate">{match.awayTeam.name}</div>
-                          <div className="text-xs md:text-sm text-muted-foreground">HOSTÉ</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+          <Target className="h-4 w-4 animate-spin text-primary" />
+          Načítám zápasy…
         </div>
       )}
 
-      {/* Upcoming Rounds - Compact List */}
-      {upcomingRounds.length > 0 && (
-        <div className="space-y-4 md:space-y-6">
-          <div className="flex items-center gap-2 md:gap-3">
-            <Calendar className="h-5 w-5 md:h-6 md:w-6 text-slate-400" />
-            <h2 className="text-lg md:text-xl font-black text-slate-900">NADCHÁZEJÍCÍ KOLA</h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-            {upcomingRounds.map((round) => {
-              const roundMatches = matchesByRound[round];
-              const firstMatch = roundMatches[0];
-              const roundDate = firstMatch?.startTime ? 
-                new Date(firstMatch.startTime).toLocaleDateString('cs-CZ', {
-                  day: 'numeric',
-                  month: 'short'
-                }) : 'TBD';
-
-              return (
-                <Card key={round} className="rounded-lg md:rounded-xl bg-white border border-gray-100 card-shadow hover:shadow-lg transition-all">
-                  <CardHeader className="bg-slate-50 border-b border-gray-100 py-2 md:py-3 px-3 md:px-6">
-                    <CardTitle className="text-sm md:text-base font-black text-slate-900 flex items-center gap-2">
-                      <span className="size-5 md:size-6 rounded-full bg-accent grid place-items-center text-white font-bold text-xs">
-                        {round}
-                      </span>
-                      {round}. KOLO • {roundDate}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-2 md:p-3 space-y-1.5 md:space-y-2">
-                    {roundMatches.map((match: any) => (
-                      <div key={match.id} className="flex items-center justify-between text-xs md:text-sm hover:bg-slate-50 p-1.5 md:p-2 rounded transition-colors">
-                        <div className="flex items-center gap-1.5 md:gap-2 flex-1 min-w-0">
-                          <div className="size-5 md:size-6 rounded bg-white shadow-sm border border-slate-200 p-0.5 shrink-0">
-                            <img
-                              src={getTeamLogo(match.homeTeam.name)}
-                              alt={match.homeTeam.name}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                          <span className="font-semibold text-slate-700 truncate text-xs">
-                            {match.homeTeam.name}
-                          </span>
-                        </div>
-                        {match.result ? (
-                          <div className="bg-primary/10 text-primary font-bold px-1.5 md:px-2 py-0.5 rounded text-xs mx-1 md:mx-2 shrink-0">
-                            {match.result.homeWins ?? match.result.homeScore}:{match.result.awayWins ?? match.result.awayScore}
-                          </div>
-                        ) : (
-                          <div className="text-slate-400 font-bold mx-1 md:mx-2 text-xs shrink-0">vs</div>
-                        )}
-                        <div className="flex items-center gap-1.5 md:gap-2 flex-1 justify-end min-w-0">
-                          <span className="font-semibold text-slate-700 truncate text-xs text-right">
-                            {match.awayTeam.name}
-                          </span>
-                          <div className="size-5 md:size-6 rounded bg-white shadow-sm border border-slate-200 p-0.5 shrink-0">
-                            <img
-                              src={getTeamLogo(match.awayTeam.name)}
-                              alt={match.awayTeam.name}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+      {!loading && matches.length === 0 && (
+        <div className="rounded-lg border border-border bg-white px-4 py-10 text-center text-sm text-muted-foreground">
+          Pro tuto sezónu není rozlosování k dispozici.
         </div>
       )}
 
-      {/* Previous Rounds - Compact List */}
-      {previousRounds.length > 0 && (
-        <div className="space-y-4 md:space-y-6">
-          <div className="flex items-center gap-2 md:gap-3">
-            <Clock className="h-5 w-5 md:h-6 md:w-6 text-slate-400" />
-            <h2 className="text-lg md:text-xl font-black text-slate-900">ODEHRANÁ KOLA</h2>
+      {!loading && matches.length > 0 && (
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5">
+              <span className="label-muted">Tým</span>
+              <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className={selectClass}>
+                <option value="">všechny</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-white p-0.5">
+              {([['vse', 'Vše'], ['odehrane', 'Odehrané'], ['naplanovane', 'Naplánované']] as const).map(
+                ([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setStatus(value)}
+                    aria-pressed={status === value}
+                    className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                      status === value ? 'bg-primary text-white' : 'text-slate-600 hover:bg-muted'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              )}
+            </div>
+
+            {filtering && (
+              <button
+                onClick={() => { setTeamId(''); setStatus('vse'); }}
+                className="text-xs text-muted-foreground underline hover:text-primary"
+              >
+                Zrušit filtry
+              </button>
+            )}
+
+            <span className="ml-auto text-xs text-muted-foreground">
+              {filtered.length === matches.length
+                ? `${matches.length} zápasů`
+                : `${filtered.length} z ${matches.length} zápasů`}
+            </span>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-            {previousRounds.slice().reverse().map((round) => {
-              const roundMatches = matchesByRound[round];
-              const firstMatch = roundMatches[0];
-              const roundDate = firstMatch?.startTime ?
-                new Date(firstMatch.startTime).toLocaleDateString('cs-CZ', {
-                  day: 'numeric',
-                  month: 'short'
-                }) : 'TBD';
+          {filtered.length === 0 && (
+            <div className="rounded-lg border border-border bg-white px-4 py-10 text-center text-sm text-muted-foreground">
+              Zvolenému filtru neodpovídá žádný zápas.
+            </div>
+          )}
 
-              return (
-                <Card key={round} className="rounded-lg md:rounded-xl bg-white border border-gray-100 card-shadow hover:shadow-lg transition-all opacity-75">
-                  <CardHeader className="bg-slate-100 border-b border-gray-100 py-2 md:py-3 px-3 md:px-6">
-                    <CardTitle className="text-sm md:text-base font-black text-slate-700 flex items-center gap-2">
-                      <span className="size-5 md:size-6 rounded-full bg-slate-400 grid place-items-center text-white font-bold text-xs">
-                        {round}
-                      </span>
-                      {round}. KOLO • {roundDate}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-2 md:p-3 space-y-1.5 md:space-y-2">
-                    {roundMatches.map((match: any) => (
-                      <div key={match.id} className="flex items-center justify-between text-xs md:text-sm hover:bg-slate-50 p-1.5 md:p-2 rounded transition-colors">
-                        <div className="flex items-center gap-1.5 md:gap-2 flex-1 min-w-0">
-                          <div className="size-5 md:size-6 rounded bg-white shadow-sm border border-slate-200 p-0.5 shrink-0">
-                            <img
-                              src={getTeamLogo(match.homeTeam.name)}
-                              alt={match.homeTeam.name}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                          <span className="font-semibold text-slate-700 truncate text-xs">
-                            {match.homeTeam.name}
-                          </span>
-                        </div>
-                        {match.result ? (
-                          <div className="bg-slate-200 text-slate-700 font-bold px-1.5 md:px-2 py-0.5 rounded text-xs mx-1 md:mx-2 shrink-0">
-                            {match.result.homeWins ?? match.result.homeScore}:{match.result.awayWins ?? match.result.awayScore}
-                          </div>
-                        ) : (
-                          <div className="text-slate-400 font-bold mx-1 md:mx-2 text-xs shrink-0">vs</div>
-                        )}
-                        <div className="flex items-center gap-1.5 md:gap-2 flex-1 justify-end min-w-0">
-                          <span className="font-semibold text-slate-700 truncate text-xs text-right">
-                            {match.awayTeam.name}
-                          </span>
-                          <div className="size-5 md:size-6 rounded bg-white shadow-sm border border-slate-200 p-0.5 shrink-0">
-                            <img
-                              src={getTeamLogo(match.awayTeam.name)}
-                              alt={match.awayTeam.name}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                        </div>
+          {/* Bez filtru: rozpis po kolech. S filtrem: souvislý seznam od nejnovějšího. */}
+          {!filtering && filtered.length > 0 && (
+            <>
+              <div className="mb-4 flex flex-wrap items-center gap-1">
+                <span className="label-muted mr-1">Kolo</span>
+                {rounds.map((r) => (
+                  <a
+                    key={r}
+                    href={`#kolo-${r}`}
+                    className={`tnum rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
+                      r === nextRound ? 'bg-primary text-white' : 'bg-muted text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {r}
+                  </a>
+                ))}
+                {!nextRound && <span className="ml-2 text-xs text-muted-foreground">· sezóna dohrána</span>}
+              </div>
+
+              <div className="space-y-3">
+                {rounds.map((round) => {
+                  const roundMatches = byRound[round];
+                  const first = roundMatches.find((m: any) => m.startTime);
+                  const roundDay = first?.startTime ? new Date(first.startTime).toDateString() : undefined;
+                  const allPlayed = roundMatches.every((m: any) => m.endTime);
+                  const isNext = round === nextRound;
+
+                  return (
+                    <section
+                      key={round}
+                      id={`kolo-${round}`}
+                      className={`scroll-mt-20 overflow-hidden rounded-lg border bg-white ${
+                        isNext ? 'border-primary/40' : 'border-border'
+                      }`}
+                    >
+                      <div
+                        className={`flex items-center justify-between gap-2 border-b px-3 py-1.5 ${
+                          isNext ? 'border-primary/20 bg-rose-50' : 'border-border bg-muted'
+                        }`}
+                      >
+                        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                          {round}. kolo
+                          {isNext && (
+                            <span className="rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                              nejbližší
+                            </span>
+                          )}
+                        </h2>
+                        <span className="text-[11px] text-muted-foreground">
+                          {first?.startTime ? weekdayDate(first.startTime) : 'termín neurčen'}
+                          {!allPlayed && ` · ${roundMatches.filter((m: any) => m.endTime).length}/${roundMatches.length} odehráno`}
+                        </span>
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
+
+                      <ul className="divide-y divide-border">
+                        {roundMatches.map((m: any) => (
+                          <MatchRow
+                            key={m.id}
+                            match={m}
+                            // Datum jen u zápasu, který se od zbytku kola liší
+                            lead={
+                              m.startTime && new Date(m.startTime).toDateString() !== roundDay
+                                ? dayMonth(m.startTime)
+                                : undefined
+                            }
+                            isAdmin={isAdmin}
+                          />
+                        ))}
+                      </ul>
+                    </section>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {filtering && filtered.length > 0 && (
+            <div className="overflow-hidden rounded-lg border border-border bg-white">
+              <ul className="divide-y divide-border">
+                {flat.map((m: any) => (
+                  <MatchRow
+                    key={m.id}
+                    match={m}
+                    lead={`${m.round}. k.`}
+                    highlightTeamId={teamId || undefined}
+                    isAdmin={isAdmin}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

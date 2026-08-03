@@ -1,200 +1,254 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Trophy, Target } from "lucide-react";
+import { Target } from "lucide-react";
 import { type TeamRecord } from '@/lib/standings';
 import { getTeamLogo, getTeamGradient } from '@/lib/team-logos';
+import { PageHeader } from '@/components/layout/page-header';
+import { SeasonSwitcher, ArchiveBanner, type SeasonOption } from '@/components/layout/season-switcher';
+
+/** Sloupce tabulky. Užší se na malých displejích skrývají, pořadí zůstává. */
+const COLUMNS: { key: keyof TeamRecord | 'rank'; label: string; title: string; hide?: string }[] = [
+  { key: 'played', label: 'Z', title: 'Odehrané zápasy' },
+  { key: 'won', label: 'V', title: 'Výhry' },
+  { key: 'wonPenalty', label: 'VP', title: 'Výhry po rozstřelu', hide: 'hidden md:table-cell' },
+  { key: 'lostPenalty', label: 'PP', title: 'Prohry po rozstřelu', hide: 'hidden md:table-cell' },
+  { key: 'lost', label: 'P', title: 'Prohry' },
+  { key: 'legsFor', label: 'LZ', title: 'Legy získané', hide: 'hidden lg:table-cell' },
+  { key: 'legsAgainst', label: 'LP', title: 'Legy ztracené', hide: 'hidden lg:table-cell' },
+];
+
+/** Posledních 5 zápasů jako řada teček, nejstarší vlevo. */
+function Form({ form }: { form: string[] }) {
+  if (form.length === 0) return null;
+  const style: Record<string, string> = {
+    W: 'bg-success', WP: 'bg-success/45', LP: 'bg-destructive/45', L: 'bg-destructive',
+  };
+  const label: Record<string, string> = {
+    W: 'výhra', WP: 'výhra po rozstřelu', LP: 'prohra po rozstřelu', L: 'prohra',
+  };
+  // form je uložená od nejnovějšího; pro čtení zleva doprava ji otáčíme
+  return (
+    <span className="flex items-center gap-1">
+      {[...form].reverse().map((r, i) => (
+        <span
+          key={i}
+          title={label[r] ?? r}
+          className={`size-2 rounded-full ${style[r] ?? 'bg-slate-300'}`}
+        />
+      ))}
+    </span>
+  );
+}
 
 export default function Standings() {
   const [standings, setStandings] = useState<TeamRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [season, setSeason] = useState<SeasonOption | null>(null);
 
   useEffect(() => {
+    if (!season) return;
+    let cancelled = false;
+
     async function fetchStandings() {
+      setLoading(true);
       try {
-        const response = await fetch('/api/standings');
+        const response = await fetch(`/api/standings?season=${encodeURIComponent(season!.id)}`);
         if (response.ok) {
           const data = await response.json();
-          setStandings(data);
+          if (!cancelled) setStandings(data);
         }
       } catch (error) {
         console.error('Error fetching standings:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     fetchStandings();
-  }, []);
+    return () => { cancelled = true; };
+  }, [season]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Target className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-slate-600">Načítám tabulku...</p>
-        </div>
-      </div>
-    );
-  }
+  // Do sezóny 2016/17 se hrálo 3/0 — sloupce VP a PP by byly samé nuly.
+  // Forma se počítá jen ze živých zápasů, archivní tabulky ji nemají.
+  const columns = COLUMNS.filter(
+    (c) => !(season?.pointsSystem === '3/0' && (c.label === 'VP' || c.label === 'PP'))
+  );
+  const showForm = standings.some((t) => t.form.length > 0);
+  // Před prvním kolem je "pořadí" jen abecední seznam — medailové pruhy ani čísla
+  // pozic by tvrdily něco, co se ještě nestalo.
+  const notStarted = standings.length > 0 && standings.every((t) => t.played === 0);
 
   return (
-    <div className="space-y-4 md:space-y-8">
-      {/* Hero Section */}
-      <div className="text-center py-8 md:py-16 bg-gradient-to-br from-slate-50 to-white rounded-xl md:rounded-3xl border border-gray-100 card-shadow px-4">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl sm:text-4xl md:text-6xl font-black text-slate-900 mb-2 md:mb-4 tracking-tight">
-            LIGOVÁ <span className="text-primary">TABULKA</span>
-          </h1>
-          <p className="text-sm md:text-xl text-slate-600 mb-4 md:mb-6">
-            Aktuální pořadí týmů - sezóna 2025/2026
+    <div>
+      <PageHeader
+        title="Tabulka"
+        subtitle={
+          season
+            ? `${season.isArchived ? 'Konečné pořadí' : 'Aktuální pořadí'} · ${season.name} · ${
+                season.pointsSystem === '3/0' ? 'V=3, P=0' : 'V=3, VP=2, PP=1, P=0'
+              }`
+            : '…'
+        }
+        actions={<SeasonSwitcher value={season?.id ?? null} onChange={setSeason} />}
+      >
+        {season && <ArchiveBanner season={season} />}
+      </PageHeader>
+
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+          <Target className="h-4 w-4 animate-spin text-primary" />
+          Načítám tabulku…
+        </div>
+      )}
+
+      {!loading && standings.length === 0 && (
+        <div className="rounded-lg border border-border bg-white px-4 py-10 text-center">
+          <p className="text-sm font-medium text-slate-700">
+            Pro tuto sezónu nejsou k dispozici žádné výsledky.
           </p>
-          <div className="flex justify-center">
-            <Badge className="bg-primary text-white px-3 md:px-4 py-1.5 md:py-2 font-bold text-xs md:text-sm">
-              V=3, VP=2, PP=1, P=0
-            </Badge>
-          </div>
+          {season?.archiveNote && (
+            <p className="mt-1 text-xs text-muted-foreground">{season.archiveNote}</p>
+          )}
         </div>
-      </div>
+      )}
 
-      {/* Standings Table */}
-      <div className="bg-white rounded-xl md:rounded-3xl border border-gray-100 card-shadow overflow-hidden">
-        {/* Table Header */}
-        <div className="bg-gradient-to-r from-slate-50 to-gray-50 px-4 md:px-8 py-3 md:py-6 border-b border-gray-100">
-          <h2 className="text-lg md:text-2xl font-black text-slate-900 flex items-center gap-2 md:gap-3">
-            <Trophy className="h-5 w-5 md:h-8 md:w-8 text-warning" />
-            POŘADÍ TÝMŮ
-          </h2>
-          <p className="text-slate-600 mt-1 text-xs md:text-base hidden sm:block">Seřazeno podle bodů a leg difference</p>
-        </div>
+      {!loading && standings.length > 0 && (
+        <>
+          {notStarted && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <strong>Sezóna zatím nezačala.</strong> Tabulka se naplní po prvním odehraném kole —
+              týmy jsou zatím seřazené podle abecedy.
+            </div>
+          )}
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50 hover:bg-slate-50 border-gray-100">
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm">#</TableHead>
-                <TableHead className="font-black text-slate-700 py-2 md:py-4 px-2 md:px-4 text-xs md:text-sm">TÝM</TableHead>
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm">Z</TableHead>
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm">V</TableHead>
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm hidden md:table-cell">VP</TableHead>
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm hidden md:table-cell">PP</TableHead>
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm">P</TableHead>
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm hidden lg:table-cell">LZ</TableHead>
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm hidden lg:table-cell">LP</TableHead>
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm">±</TableHead>
-                <TableHead className="text-center font-black text-slate-700 py-2 md:py-4 px-1 md:px-4 text-xs md:text-sm">B</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {standings.map((team, index) => (
-                <TableRow
-                  key={team.teamId}
-                  className={`border-gray-100 transition-all duration-200 hover:bg-rose-50/80 hover:shadow-sm ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
-                  } ${index === 0 ? 'bg-gradient-to-r from-yellow-50 to-white border-yellow-200' : ''}`}
-                >
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4">
-                    <div className={`size-6 md:size-8 rounded-full mx-auto font-black text-xs md:text-lg grid place-items-center ${
-                      index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white' :
-                      index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
-                      index === 2 ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white' :
-                      'bg-gradient-to-br from-slate-200 to-slate-300 text-slate-700'
-                    }`}>
-                      {index + 1}
-                    </div>
-                  </TableCell>
+          <div className="overflow-hidden rounded-lg border border-border bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border bg-muted hover:bg-muted">
+                  <TableHead className="w-10 text-center">#</TableHead>
+                  <TableHead>Tým</TableHead>
+                  {showForm && (
+                    <TableHead className="hidden w-24 lg:table-cell" title="Posledních 5 zápasů">
+                      Forma
+                    </TableHead>
+                  )}
+                  {columns.map((c) => (
+                    <TableHead
+                      key={c.label}
+                      title={c.title}
+                      className={`w-11 text-center ${c.hide ?? ''}`}
+                    >
+                      {c.label}
+                    </TableHead>
+                  ))}
+                  <TableHead className="w-14 text-center" title="Rozdíl legů">±</TableHead>
+                  <TableHead className="w-12 text-center text-slate-900" title="Body">B</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {standings.map((team, index) => (
+                  <TableRow
+                    key={team.teamId}
+                    className="border-border hover:bg-rose-50/50"
+                  >
+                    <TableCell className="text-center">
+                      <span className="tnum text-sm font-semibold text-slate-500">
+                        {notStarted ? '–' : index + 1}
+                      </span>
+                    </TableCell>
 
-                  <TableCell className="py-2 md:py-6 px-2 md:px-4">
-                    <div className="flex items-center gap-2 md:gap-4">
-                      <div className="size-8 md:size-12 rounded-lg md:rounded-xl bg-white shadow-sm border border-slate-200 p-0.5 md:p-1 overflow-hidden shrink-0">
-                        <img
-                          src={getTeamLogo(team.teamName)}
-                          alt={team.teamName}
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            const fallback = target.parentElement;
-                            if (fallback) {
-                              fallback.className = `size-8 md:size-12 rounded-lg md:rounded-xl bg-gradient-to-br ${getTeamGradient(team.teamName)} grid place-items-center text-white shadow-sm`;
-                              fallback.innerHTML = `<span class="font-black text-xs">${team.teamName.split(' ').map((word: string) => word[0]).join('').slice(0, 3).toUpperCase()}</span>`;
-                            }
-                          }}
+                    <TableCell className="max-w-0">
+                      <div className="flex items-center gap-2">
+                        {/* Medailová pozice: tenký pruh u hrany řádku místo barevného kolečka */}
+                        <span
+                          aria-hidden
+                          className={`h-5 w-0.5 shrink-0 rounded-full ${
+                            notStarted ? 'bg-transparent'
+                            : index === 0 ? 'bg-amber-400'
+                            : index === 1 ? 'bg-slate-300'
+                            : index === 2 ? 'bg-amber-700/60'
+                            : 'bg-transparent'
+                          }`}
                         />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-black text-xs md:text-lg text-slate-900 leading-tight truncate">{team.teamName}</div>
-                        <div className="text-xs text-muted-foreground hidden md:block">
-                          {team.played} zápasů
+                        <div className="size-6 shrink-0 overflow-hidden rounded border border-border bg-white">
+                          <img
+                            src={getTeamLogo(team.teamName)}
+                            alt=""
+                            className="h-full w-full object-contain"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const fallback = target.parentElement;
+                              if (fallback) {
+                                fallback.className = `size-6 shrink-0 rounded bg-gradient-to-br ${getTeamGradient(team.teamName)} grid place-items-center text-white`;
+                                fallback.innerHTML = `<span class="text-[9px] font-bold">${team.teamName.split(' ').map((word: string) => word[0]).join('').slice(0, 3).toUpperCase()}</span>`;
+                              }
+                            }}
+                          />
                         </div>
+                        {/* U archivních sezón je teamId převzatý název z tabulky
+                            starého webu, ne id v DB — odkaz na detail by vedl nikam */}
+                        {season?.isArchived ? (
+                          <span className="truncate font-medium text-slate-900">
+                            {team.teamName}
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/team/${team.teamId}`}
+                            className="truncate font-medium text-slate-900 hover:text-primary hover:underline"
+                          >
+                            {team.teamName}
+                          </Link>
+                        )}
                       </div>
-                    </div>
-                  </TableCell>
+                    </TableCell>
 
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4">
-                    <div className="font-bold text-slate-600 text-xs md:text-lg">{team.played}</div>
-                  </TableCell>
+                    {showForm && (
+                      <TableCell className="hidden lg:table-cell">
+                        <Form form={team.form} />
+                      </TableCell>
+                    )}
 
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4">
-                    <div className="inline-flex items-center justify-center size-6 md:size-10 rounded-full bg-emerald-100 text-emerald-700 font-black text-xs md:text-lg">
-                      {team.won}
-                    </div>
-                  </TableCell>
+                    {columns.map((c) => (
+                      <TableCell
+                        key={c.label}
+                        className={`tnum text-center text-slate-600 ${c.hide ?? ''}`}
+                      >
+                        {team[c.key as keyof TeamRecord] as number}
+                      </TableCell>
+                    ))}
 
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4 hidden md:table-cell">
-                    <div className="font-bold text-slate-600 text-lg">{team.wonPenalty}</div>
-                  </TableCell>
-
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4 hidden md:table-cell">
-                    <div className="font-bold text-slate-600 text-lg">{team.lostPenalty}</div>
-                  </TableCell>
-
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4">
-                    <div className="inline-flex items-center justify-center size-6 md:size-10 rounded-full bg-red-100 text-red-700 font-black text-xs md:text-lg">
-                      {team.lost}
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4 hidden lg:table-cell">
-                    <div className="font-bold text-slate-600 text-lg">{team.legsFor}</div>
-                  </TableCell>
-
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4 hidden lg:table-cell">
-                    <div className="font-bold text-slate-600 text-lg">{team.legsAgainst}</div>
-                  </TableCell>
-
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4">
-                    <div className={`font-black text-xs md:text-lg ${team.legDifference >= 0 ? 'text-success' : 'text-destructive'}`}>
+                    <TableCell
+                      className={`tnum text-center font-medium ${
+                        team.legDifference > 0 ? 'text-success'
+                        : team.legDifference < 0 ? 'text-destructive'
+                        : 'text-slate-500'
+                      }`}
+                    >
                       {team.legDifference > 0 ? '+' : ''}{team.legDifference}
-                    </div>
-                  </TableCell>
+                    </TableCell>
 
-                  <TableCell className="text-center py-2 md:py-6 px-1 md:px-4">
-                    <div className="inline-flex items-center justify-center min-w-[32px] md:min-w-[60px] h-7 md:h-12 rounded-lg md:rounded-xl bg-gradient-to-r from-primary to-accent text-white font-black text-sm md:text-xl px-2 md:px-4">
+                    <TableCell className="tnum text-center text-base font-bold text-slate-900">
                       {team.points}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {standings.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={11} className="text-center py-16">
-                    <div className="mx-auto mb-6 size-20 rounded-full bg-muted grid place-items-center">
-                      <Trophy className="size-10 text-slate-400" />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Žádné týmy v tabulce</h3>
-                    <p className="text-slate-600">Tabulka bude dostupná po prvních odehraných zápasech</p>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <p className="mt-2 text-xs text-muted-foreground">
+            Z – zápasy · V/P – výhry a prohry
+            {season?.pointsSystem !== '3/0' && ' · VP/PP – po rozstřelu'}
+            {' '}· LZ/LP – legy získané a ztracené · ± – rozdíl legů · B – body.
+            {' '}Pořadí: body → vzájemný zápas → rozdíl legů.{' '}
+            <Link href="/rules" className="underline hover:text-primary">Pravidla</Link>
+          </p>
+        </>
+      )}
     </div>
   );
 }

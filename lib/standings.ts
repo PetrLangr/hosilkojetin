@@ -18,6 +18,20 @@ export function calculatePoints(won: number, wonPenalty: number, lostPenalty: nu
   return won * 3 + wonPenalty * 2 + lostPenalty * 1;
 }
 
+// Výsledky se v DB vyskytují ve více tvarech:
+// - Quick result: homeWins/awayWins, homeLegs/awayLegs
+// - Detailed old format: homeScore/awayScore
+// - Detailed new format: homeGamesWon/awayGamesWon
+// - Match Wizard: homeScore/awayScore + totalLegs.home/totalLegs.away
+export function readResult(result: any) {
+  return {
+    homeGamesWon: result.homeWins ?? result.homeGamesWon ?? result.homeScore ?? 0,
+    awayGamesWon: result.awayWins ?? result.awayGamesWon ?? result.awayScore ?? 0,
+    homeLegs: result.homeLegs ?? result.homeLegsTotal ?? result.homeLegsWon ?? result.totalLegs?.home ?? 0,
+    awayLegs: result.awayLegs ?? result.awayLegsTotal ?? result.awayLegsWon ?? result.totalLegs?.away ?? 0,
+  };
+}
+
 export function calculateStandings(teams: any[], matches: any[]): TeamRecord[] {
   const standings: Map<string, TeamRecord> = new Map();
   
@@ -49,15 +63,7 @@ export function calculateStandings(teams: any[], matches: any[]): TeamRecord[] {
 
     const result = match.result as any;
 
-    // Get games won and legs from result structure
-    // Support multiple formats:
-    // - Quick result: homeWins/awayWins, homeLegs/awayLegs
-    // - Detailed old format: homeScore/awayScore
-    // - Detailed new format: homeGamesWon/awayGamesWon
-    const homeGamesWon = result.homeWins ?? result.homeGamesWon ?? result.homeScore ?? 0;
-    const awayGamesWon = result.awayWins ?? result.awayGamesWon ?? result.awayScore ?? 0;
-    const homeLegs = result.homeLegs ?? result.homeLegsTotal ?? result.homeLegsWon ?? 0;
-    const awayLegs = result.awayLegs ?? result.awayLegsTotal ?? result.awayLegsWon ?? 0;
+    const { homeGamesWon, awayGamesWon, homeLegs, awayLegs } = readResult(result);
     
     // Update games played
     homeTeam.played++;
@@ -134,19 +140,63 @@ export function calculateStandings(teams: any[], matches: any[]): TeamRecord[] {
   return Array.from(standings.values());
 }
 
-export function sortStandings(standings: TeamRecord[]): TeamRecord[] {
+// Minitabulka ze vzájemných zápasů skupiny týmů se shodným počtem bodů.
+// Body se počítají stejným pravidlem jako v calculateStandings (9:8 = VP/PP).
+function headToHead(group: TeamRecord[], matches: any[]) {
+  const ids = new Set(group.map(t => t.teamId));
+  const mini = new Map(group.map(t => [t.teamId, { points: 0, legDiff: 0 }]));
+
+  matches
+    .filter(m => m.endTime && m.result && ids.has(m.homeTeamId) && ids.has(m.awayTeamId))
+    .forEach(match => {
+      const { homeGamesWon, awayGamesWon, homeLegs, awayLegs } = readResult(match.result);
+      const home = mini.get(match.homeTeamId)!;
+      const away = mini.get(match.awayTeamId)!;
+
+      home.legDiff += homeLegs - awayLegs;
+      away.legDiff += awayLegs - homeLegs;
+
+      const tiebreaker = (homeGamesWon === 9 && awayGamesWon === 8) ||
+                         (homeGamesWon === 8 && awayGamesWon === 9);
+      const [winner, loser] = homeGamesWon > awayGamesWon ? [home, away] : [away, home];
+      if (homeGamesWon === awayGamesWon) return;
+      winner.points += tiebreaker ? 2 : 3;
+      loser.points += tiebreaker ? 1 : 0;
+    });
+
+  return mini;
+}
+
+export function sortStandings(standings: TeamRecord[], matches: any[] = []): TeamRecord[] {
+  // Vzájemné duely se vyhodnocují jen mezi týmy se stejnými body, proto je
+  // potřeba znát celou skupinu — samotný komparátor dvojic na to nestačí.
+  const byPoints = new Map<number, TeamRecord[]>();
+  standings.forEach(t => byPoints.set(t.points, [...(byPoints.get(t.points) ?? []), t]));
+
+  const mini = new Map<string, { points: number; legDiff: number }>();
+  byPoints.forEach(group => {
+    if (group.length < 2 || matches.length === 0) return;
+    headToHead(group, matches).forEach((v, k) => mini.set(k, v));
+  });
+
   return standings.sort((a, b) => {
     // 1. Body
     if (a.points !== b.points) return b.points - a.points;
-    
-    // 2. Vzájemný duel - TODO: implementovat později
-    
+
+    // 2. Vzájemný duel (minitabulka: body, pak rozdíl legů ze vzájemných zápasů)
+    const ma = mini.get(a.teamId);
+    const mb = mini.get(b.teamId);
+    if (ma && mb) {
+      if (ma.points !== mb.points) return mb.points - ma.points;
+      if (ma.legDiff !== mb.legDiff) return mb.legDiff - ma.legDiff;
+    }
+
     // 3. Leg difference
     if (a.legDifference !== b.legDifference) return b.legDifference - a.legDifference;
-    
+
     // 4. Legy pro
     if (a.legsFor !== b.legsFor) return b.legsFor - a.legsFor;
-    
+
     // 5. Los (abecedně podle názvu)
     return a.teamName.localeCompare(b.teamName);
   });

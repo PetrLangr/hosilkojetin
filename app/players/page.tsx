@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Target, Trophy, Users, Plus, Minus, Search, Filter, Home, Construction } from "lucide-react";
 import Link from "next/link";
+import { PageHeader } from '@/components/layout/page-header';
 import { getTeamLogo, getTeamGradient } from '@/lib/team-logos';
 
 export default function Players() {
@@ -122,96 +123,52 @@ export default function Players() {
     );
   }
 
-  // Show "under construction" banner for non-logged-in users
+  // Nepřihlášeným ukazujeme, co se chystá. Statistiky hráčů zatím nejsou
+  // dopočítané pro celou sezónu, takže žebříček by byl samá nula.
   if (!session) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <div className="text-center max-w-2xl mx-auto px-6">
-          {/* Construction Hero */}
-          <div className="relative mb-12">
-            <div className="size-32 md:size-40 mx-auto rounded-full border-8 border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-orange-500/10 grid place-items-center">
-              <Construction className="h-16 w-16 md:h-20 md:w-20 text-amber-600" />
-            </div>
-          </div>
+      <div>
+        <PageHeader title="Hráči" subtitle="statistiky se připravují" />
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-900">
+            <Construction className="h-4 w-4" />
+            Žebříček hráčů zatím není hotový
+          </p>
+          <p className="mt-1 text-xs text-amber-900/80">
+            Chystáme HŠL index, kompletní statistiky za sezónu (singly, dvojice, trojice),
+            vysoké náhozy 95+, 133+ a 170+, rychlá zavření CO3–CO6 a historii výsledků.
+          </p>
+        </div>
 
-          {/* Message */}
-          <div className="space-y-6 mb-12">
-            <Badge className="bg-amber-600 text-white px-6 py-3 text-lg font-bold">
-              VE VÝVOJI
-            </Badge>
-
-            <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tight">
-              DETAILNÍ STATISTIKY <span className="text-primary">HRÁČŮ</span>
-            </h1>
-
-            <p className="text-xl text-slate-600 leading-relaxed">
-              Připravujeme komplexní žebříček hráčů s detailními statistikami výkonnosti.
-            </p>
-
-            <div className="bg-slate-50 rounded-2xl p-6 border border-gray-100">
-              <div className="text-sm text-slate-600 space-y-3">
-                <p><strong>Co můžete očekávat:</strong></p>
-                <ul className="list-disc list-inside text-left mx-auto max-w-md space-y-1">
-                  <li>HSL Index - žebříček hráčů podle výkonnosti</li>
-                  <li>Kompletní statistiky za sezónu (singly, dvojice, trojice)</li>
-                  <li>Sledování vysokých náhozů (95+, 133+, 170+)</li>
-                  <li>Rychlá zavření (CO3, CO4, CO5, CO6)</li>
-                  <li>Historie výsledků a trendů</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <div className="grid md:grid-cols-3 gap-4">
-            <Button asChild className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold py-4">
-              <Link href="/">
-                <Home className="h-5 w-5 mr-2" />
-                Domů
-              </Link>
-            </Button>
-
-            <Button asChild variant="outline" className="rounded-xl border-accent text-accent hover:bg-accent hover:text-white font-bold py-4">
-              <Link href="/teams">
-                <Target className="h-5 w-5 mr-2" />
-                Týmy
-              </Link>
-            </Button>
-
-            <Button asChild variant="outline" className="rounded-xl border-slate-300 text-slate-600 hover:bg-slate-100 font-bold py-4">
-              <Link href="/standings">
-                <Trophy className="h-5 w-5 mr-2" />
-                Tabulka
-              </Link>
-            </Button>
-          </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {[
+            { href: '/standings', label: 'Tabulka' },
+            { href: '/teams', label: 'Týmy a soupisky' },
+            { href: '/schedule', label: 'Zápasy' },
+          ].map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="rounded-md border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-primary hover:text-primary"
+            >
+              {l.label}
+            </Link>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Hero Section */}
-      <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-white rounded-3xl border border-gray-100 card-shadow">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight">
-            ŽEBŘÍČEK <span className="text-primary">HRÁČŮ</span>
-          </h1>
-          <p className="text-xl text-slate-600 mb-6">
-            Nejlepší hráči sezóny 2025/2026 podle různých statistik
-          </p>
-          <div className="flex justify-center gap-4">
-            <Badge className="bg-primary text-white px-4 py-2 font-bold">
-              {filteredPlayers.length} / {players.length} HRÁČŮ
-            </Badge>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Hráči"
+        subtitle={`${filteredPlayers.length} z ${players.length} hráčů`}
+      />
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-gray-100 card-shadow p-6">
-        <div className="flex flex-col md:flex-row gap-4">
+      <div className="rounded-lg border border-border bg-white p-3">
+        <div className="flex flex-col gap-2 md:flex-row">
           {/* Search by name */}
           <div className="flex-1">
             <div className="relative">
@@ -221,7 +178,7 @@ export default function Players() {
                 placeholder="Hledat hráče podle jména nebo přezdívky..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 rounded-xl"
+                className="h-8 rounded-md pl-9"
               />
             </div>
           </div>
@@ -229,7 +186,7 @@ export default function Players() {
           {/* Filter by team */}
           <div className="w-full md:w-64">
             <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-              <SelectTrigger className="rounded-xl">
+              <SelectTrigger className="h-8 rounded-md">
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
                   <SelectValue placeholder="Vybrat tým" />
@@ -263,7 +220,7 @@ export default function Players() {
                 setSearchQuery('');
                 setSelectedTeam('all');
               }}
-              className="rounded-xl"
+              className="h-8 rounded-md text-xs"
             >
               Vymazat filtry
             </Button>
@@ -272,14 +229,14 @@ export default function Players() {
       </div>
 
       {/* Player Statistics */}
-      <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-        <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-100">
-          <CardTitle className="text-2xl font-black text-slate-900 flex items-center gap-3">
-            <Target className="h-8 w-8 text-primary" />
-            KOMPLETNÍ STATISTIKY
+      <Card className="overflow-hidden rounded-lg border border-border bg-white p-0">
+        <CardHeader className="border-b border-border bg-muted px-3 py-2">
+          <CardTitle className="flex items-center gap-1.5 text-sm">
+            <Target className="h-4 w-4 text-primary" />
+            Kompletní statistiky
           </CardTitle>
-          <CardDescription className="text-slate-600 mt-1">
-            Klikněte na libovolný sloupec pro seřazení podle této statistiky
+          <CardDescription className="text-[11px]">
+            Klikem na sloupec seřadíte podle dané statistiky
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -287,11 +244,11 @@ export default function Players() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50 hover:bg-slate-50 border-gray-100">
-                  <TableHead className="text-center font-black text-slate-700 py-6 w-16 sticky left-0 bg-slate-50 z-20">#</TableHead>
-                  <TableHead className="font-black text-slate-700 py-6 w-64 sticky left-16 bg-slate-50 z-20 border-r-2 border-slate-200">HRÁČ</TableHead>
+                  <TableHead className="text-center py-2 w-16 sticky left-0 bg-slate-50 z-20">#</TableHead>
+                  <TableHead className="py-2 w-64 sticky left-16 bg-slate-50 z-20 border-r-2 border-slate-200">HRÁČ</TableHead>
                   
                   {/* Celkem */}
-                  <TableHead className="text-center font-black text-slate-700 py-6 w-32 cursor-pointer hover:text-primary transition-colors">
+                  <TableHead className="text-center py-2 w-32 cursor-pointer hover:text-primary transition-colors">
                     <div className="flex items-center justify-center gap-2">
                       CELKEM
                       <Button 
@@ -307,17 +264,17 @@ export default function Players() {
                   
                   {expandedSections.matches && (
                     <>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-24 cursor-pointer hover:text-primary transition-colors">
+                      <TableHead className="text-center py-2 w-24 cursor-pointer hover:text-primary transition-colors">
                         ODEHRÁNO
                       </TableHead>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-24 cursor-pointer hover:text-primary transition-colors">
+                      <TableHead className="text-center py-2 w-24 cursor-pointer hover:text-primary transition-colors">
                         VYHRÁNO
                       </TableHead>
                     </>
                   )}
                   
                   {/* Singly */}
-                  <TableHead className="text-center font-black text-slate-700 py-6 w-32 cursor-pointer hover:text-accent transition-colors border-l border-slate-300">
+                  <TableHead className="text-center py-2 w-32 cursor-pointer hover:text-accent transition-colors border-l border-slate-300">
                     <div className="flex items-center justify-center gap-2">
                       SINGLY
                       <Button 
@@ -333,17 +290,17 @@ export default function Players() {
                   
                   {expandedSections.legs && (
                     <>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-24 cursor-pointer hover:text-accent transition-colors">
+                      <TableHead className="text-center py-2 w-24 cursor-pointer hover:text-accent transition-colors">
                         ODEHRÁNO
                       </TableHead>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-24 cursor-pointer hover:text-accent transition-colors">
+                      <TableHead className="text-center py-2 w-24 cursor-pointer hover:text-accent transition-colors">
                         VYHRÁNO
                       </TableHead>
                     </>
                   )}
                   
                   {/* Náhozy */}
-                  <TableHead className="text-center font-black text-slate-700 py-6 w-32 cursor-pointer hover:text-slate-900 transition-colors border-l border-slate-300">
+                  <TableHead className="text-center py-2 w-32 cursor-pointer hover:text-slate-900 transition-colors border-l border-slate-300">
                     <div className="flex items-center justify-center gap-2">
                       NÁHOZY
                       <Button 
@@ -359,15 +316,15 @@ export default function Players() {
                   
                   {expandedSections.throws && (
                     <>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-20 cursor-pointer hover:text-slate-900 transition-colors">95+</TableHead>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-20 cursor-pointer hover:text-slate-900 transition-colors">133+</TableHead>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-20 cursor-pointer hover:text-slate-900 transition-colors">170+</TableHead>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-20 cursor-pointer hover:text-slate-900 transition-colors">ASFALT</TableHead>
+                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">95+</TableHead>
+                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">133+</TableHead>
+                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">170+</TableHead>
+                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">ASFALT</TableHead>
                     </>
                   )}
                   
                   {/* Checkouty */}
-                  <TableHead className="text-center font-black text-slate-700 py-6 w-32 cursor-pointer hover:text-slate-900 transition-colors border-l border-slate-300">
+                  <TableHead className="text-center py-2 w-32 cursor-pointer hover:text-slate-900 transition-colors border-l border-slate-300">
                     <div className="flex items-center justify-center gap-2">
                       CHECKOUTY
                       <Button
@@ -383,23 +340,22 @@ export default function Players() {
 
                   {expandedSections.checkouts && (
                     <>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO3</TableHead>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO4</TableHead>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO5</TableHead>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO6</TableHead>
-                      <TableHead className="text-center font-black text-slate-700 py-6 w-28 cursor-pointer hover:text-slate-900 transition-colors border-l border-slate-300">NEJVYŠŠÍ ZAVŘENÍ</TableHead>
+                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO3</TableHead>
+                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO4</TableHead>
+                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO5</TableHead>
+                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO6</TableHead>
+                      <TableHead className="text-center py-2 w-28 cursor-pointer hover:text-slate-900 transition-colors border-l border-slate-300">NEJVYŠŠÍ ZAVŘENÍ</TableHead>
                     </>
                   )}
 
                   {/* HSL Index */}
-                  <TableHead className="text-center font-black text-slate-700 py-6 w-32 border-l-2 border-primary bg-gradient-to-r from-rose-50 to-rose-50">
+                  <TableHead className="text-center py-2 w-32 border-l-2 border-primary bg-gradient-to-r from-rose-50 to-rose-50">
                     <div className="flex items-center justify-center gap-2">
                       <Trophy className="h-4 w-4 text-primary" />
                       HSL INDEX
                     </div>
                   </TableHead>
 
-                  <TableHead className="text-center font-black text-slate-700 py-6 w-24 border-l border-slate-300">PROFIL</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -470,10 +426,9 @@ export default function Players() {
                           />
                         </div>
                         <div className="min-w-0">
+                          {/* Detail hráče byl zrušen — jméno zůstává jako text */}
                           <div className="font-black text-lg text-slate-900 leading-tight">
-                            <Link href={`/player/${player.id}`} className="hover:text-primary transition-colors">
-                              {player.name}
-                            </Link>
+                            {player.name}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {player.team?.name || 'Bez týmu'}
@@ -483,7 +438,7 @@ export default function Players() {
                     </TableCell>
                     
                     {/* Celkem % */}
-                    <TableCell className="text-center py-8">
+                    <TableCell className="text-center">
                       <div className="font-black text-xl text-slate-900">
                         {playerStats.totalPlayed > 0 ? Math.round((playerStats.totalWon / playerStats.totalPlayed) * 100) : 0}%
                       </div>
@@ -491,17 +446,17 @@ export default function Players() {
                     
                     {expandedSections.matches && (
                       <>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.totalPlayed}</div>
                         </TableCell>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.totalWon}</div>
                         </TableCell>
                       </>
                     )}
                     
                     {/* Singly % */}
-                    <TableCell className="text-center py-8">
+                    <TableCell className="text-center">
                       <div className="font-black text-xl text-slate-900">
                         {playerStats.singlesPlayed > 0 ? Math.round((playerStats.singlesWon / playerStats.singlesPlayed) * 100) : 0}%
                       </div>
@@ -509,57 +464,57 @@ export default function Players() {
                     
                     {expandedSections.legs && (
                       <>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.singlesPlayed}</div>
                         </TableCell>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.singlesWon}</div>
                         </TableCell>
                       </>
                     )}
                     
                     {/* Náhozy */}
-                    <TableCell className="text-center py-8">
+                    <TableCell className="text-center">
                       <div className="font-black text-xl text-slate-900">{playerStats.S95 + playerStats.S133 + playerStats.S170}</div>
                     </TableCell>
                     
                     {expandedSections.throws && (
                       <>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.S95}</div>
                         </TableCell>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.S133}</div>
                         </TableCell>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.S170}</div>
                         </TableCell>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-red-600 text-lg">{playerStats.Asfalt}</div>
                         </TableCell>
                       </>
                     )}
                     
                     {/* Checkouty */}
-                    <TableCell className="text-center py-8">
+                    <TableCell className="text-center">
                       <div className="font-black text-xl text-slate-900">{playerStats.CO3 + playerStats.CO4 + playerStats.CO5 + playerStats.CO6}</div>
                     </TableCell>
 
                     {expandedSections.checkouts && (
                       <>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.CO3}</div>
                         </TableCell>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.CO4}</div>
                         </TableCell>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.CO5}</div>
                         </TableCell>
-                        <TableCell className="text-center py-8">
+                        <TableCell className="text-center">
                           <div className="font-bold text-slate-600 text-lg">{playerStats.CO6}</div>
                         </TableCell>
-                        <TableCell className="text-center py-8 border-l border-slate-300">
+                        <TableCell className="text-center border-l border-slate-300">
                           <div className="font-black text-xl text-emerald-700">
                             {playerStats.highestCheckout > 0 ? playerStats.highestCheckout : '-'}
                           </div>
@@ -568,19 +523,12 @@ export default function Players() {
                     )}
 
                     {/* HSL Index */}
-                    <TableCell className="text-center py-8 border-l-2 border-primary bg-gradient-to-r from-rose-50/50 to-transparent">
+                    <TableCell className="text-center border-l-2 border-primary bg-gradient-to-r from-rose-50/50 to-transparent">
                       <div className="font-black text-2xl text-primary">
                         {playerStats.hslIndex.toFixed(1)}
                       </div>
                     </TableCell>
 
-                    <TableCell className="text-center py-8">
-                      <Button asChild size="sm" className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-semibold px-4 py-2">
-                        <Link href={`/player/${player.id}`}>
-                          Profil
-                        </Link>
-                      </Button>
-                    </TableCell>
                   </TableRow>
                   );
                   })

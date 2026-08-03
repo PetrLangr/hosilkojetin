@@ -1,6 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Target, Users, Calendar, Trophy, MessageSquare, Pin, TrendingUp, Construction } from "lucide-react";
+import { Users, Calendar, Trophy, MessageSquare, Pin, ClipboardList, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TeamLogo } from "@/components/team-logo";
@@ -8,21 +6,20 @@ import { PWAQRCode } from "@/components/pwa-qr-code";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { calculateStandings, sortStandings } from "@/lib/standings";
+import { calculateStandings, sortStandings, readResult } from "@/lib/standings";
 
 async function getHomepageData() {
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
-  
+
   try {
-    console.log('Getting homepage data...');
-    
     const season = await prisma.season.findFirst({
       where: { isActive: true }
     });
 
     if (!season) {
       return {
+        seasonName: null,
         stats: {
           teamsCount: 0,
           playersCount: 0,
@@ -39,7 +36,7 @@ async function getHomepageData() {
     // Get counts - simplified to avoid JSON field issues
     const [teamsCount, playersCount, totalMatches] = await Promise.all([
       prisma.team.count({ where: { seasonId: season.id } }),
-      prisma.player.count({ 
+      prisma.player.count({
         where: { team: { seasonId: season.id } }
       }),
       prisma.match.count({ where: { seasonId: season.id } })
@@ -73,7 +70,7 @@ async function getHomepageData() {
         awayTeam: true
       },
       orderBy: { endTime: 'desc' },
-      take: 5
+      take: 6
     });
 
     // Get upcoming matches - use endTime instead of result
@@ -87,7 +84,7 @@ async function getHomepageData() {
         awayTeam: true
       },
       orderBy: { startTime: 'asc' },
-      take: 5
+      take: 6
     });
 
     // Get recent posts from database
@@ -108,7 +105,7 @@ async function getHomepageData() {
         { pinned: 'desc' },
         { createdAt: 'desc' }
       ],
-      take: 4 // Limit to 4 posts for homepage
+      take: 4 // Kompaktní seznam unese víc položek než dřívější mřížka karet
     });
 
     // Get standings for Top 5 teams
@@ -125,10 +122,11 @@ async function getHomepageData() {
     });
 
     const standings = calculateStandings(teams, allMatches);
-    const sortedStandings = sortStandings(standings);
+    const sortedStandings = sortStandings(standings, allMatches);
     const topTeams = sortedStandings.slice(0, 5);
 
     const result = {
+      seasonName: season.name,
       stats: {
         teamsCount,
         playersCount,
@@ -136,14 +134,27 @@ async function getHomepageData() {
         roundsProgress: `0/${totalRounds}`
       },
       standings: topTeams,
-      recentResults: recentResults.map(match => ({
-        homeTeam: match.homeTeam.name,
-        awayTeam: match.awayTeam.name,
-        result: match.result || 'TBD'
-      })),
+      recentResults: recentResults.map(match => {
+        const score = match.result ? readResult(match.result) : null;
+        return {
+          id: match.id,
+          homeTeam: match.homeTeam.name,
+          awayTeam: match.awayTeam.name,
+          homeShort: match.homeTeam.shortName,
+          awayShort: match.awayTeam.shortName,
+          round: match.round,
+          homeGames: score?.homeGamesWon ?? null,
+          awayGames: score?.awayGamesWon ?? null,
+          endTime: match.endTime,
+        };
+      }),
       upcomingMatches: upcomingMatches.map(match => ({
+        id: match.id,
         homeTeam: match.homeTeam.name,
         awayTeam: match.awayTeam.name,
+        homeShort: match.homeTeam.shortName,
+        awayShort: match.awayTeam.shortName,
+        round: match.round,
         date: match.startTime
       })),
       posts: posts.map((post) => ({
@@ -160,16 +171,17 @@ async function getHomepageData() {
         createdAt: post.createdAt
       }))
     };
-    
+
     return result;
   } catch (error) {
     console.error('Error fetching homepage data:', error);
     return {
+      seasonName: null,
       stats: {
-        teamsCount: 12,
-        playersCount: 86,
-        matchesProgress: '0/66',
-        roundsProgress: '0/11'
+        teamsCount: 0,
+        playersCount: 0,
+        matchesProgress: '0/0',
+        roundsProgress: '0/0'
       },
       standings: [],
       recentResults: [],
@@ -180,6 +192,49 @@ async function getHomepageData() {
     await prisma.$disconnect();
   }
 }
+
+/** Rámeček sekce: titulek s odkazem na plný výpis, pod ním obsah. */
+function Panel({
+  title,
+  icon,
+  href,
+  hrefLabel,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  href?: string;
+  hrefLabel?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex flex-col overflow-hidden rounded-lg border border-border bg-white">
+      <div className="flex items-center justify-between gap-2 border-b border-border bg-muted px-3 py-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+          {icon}
+          {title}
+        </h2>
+        {href && (
+          <Link
+            href={href}
+            className="flex items-center gap-0.5 text-xs font-medium text-muted-foreground hover:text-primary"
+          >
+            {hrefLabel ?? 'Vše'}
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+      <div className="flex-1">{children}</div>
+    </section>
+  );
+}
+
+const EmptyRow = ({ children }: { children: React.ReactNode }) => (
+  <p className="px-3 py-6 text-center text-xs text-muted-foreground">{children}</p>
+);
+
+const dayMonth = (d: Date | string) =>
+  new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
 
 export default async function Homepage() {
   const data = await getHomepageData();
@@ -192,499 +247,254 @@ export default async function Homepage() {
     console.error('Session error:', error);
   }
 
+  const [playedMatches, allMatches] = data.stats.matchesProgress.split('/');
+  // Na konci sezóny už žádné zápasy nezbývají — místo prázdného panelu
+  // dostanou výsledky dvojnásobnou šířku a zobrazí se ve dvou sloupcích.
+  const hasUpcoming = data.upcomingMatches.length > 0;
+
   return (
-    <div className="space-y-8">
-      {/* Hero Section */}
-      <section className="relative min-h-[450px] md:min-h-[600px] lg:min-h-[700px] overflow-hidden rounded-2xl md:rounded-3xl">
-        {/* Background Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: "url('/hero-dartboard.webp')"
-          }}
+    <div className="space-y-5">
+      {/* Hero — vizuální ukotvení ligy, ale jen pruh: obsah pod ním musí zůstat
+          nad okrajem obrazovky, jinak si ho nikdo nevšimne */}
+      <section className="relative overflow-hidden rounded-lg">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/hero-dartboard.webp')" }}
         />
-        
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40" />
-        
-        {/* Content */}
-        <div className="relative z-10 flex items-center min-h-[450px] md:min-h-[600px] lg:min-h-[700px] py-8 md:py-16">
-          <div className="container mx-auto px-4 md:px-6 lg:px-8">
-            <div className="max-w-4xl">
-              <div className="mb-6">
-                <Badge className="bg-primary/90 text-white px-4 py-2 text-sm font-semibold backdrop-blur-sm">
-                  SEZÓNA 2025/2026
-                </Badge>
-              </div>
-              
-              <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-white mb-4 md:mb-6 leading-[1.1] tracking-tight">
-                HOSPODSKÁ
-                <br />
-                <span className="text-primary">ŠIPKOVÁ</span>
-                <br />
-                LIGA
-              </h1>
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/70 to-slate-950/30" />
 
-              <p className="text-base sm:text-xl md:text-2xl text-gray-300 mb-6 md:mb-8 max-w-2xl font-medium">
-                Sledujte výsledky, statistiky hráčů a nejnovější zprávy z naší ligy.
-                Přidejte se k tradici hospodského šipkování.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button asChild size="lg" className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold px-8 py-4 text-lg">
-                  <Link href="/standings">
-                    <Trophy className="h-5 w-5 mr-2" />
-                    Zobrazit tabulku
-                  </Link>
-                </Button>
-                
-                <Button asChild variant="secondary" size="lg" className="rounded-xl border-2 border-white/30 bg-white/10 text-white hover:bg-white hover:text-slate-900 font-bold px-8 py-4 text-lg backdrop-blur-md transition-all">
-                  <Link href="/teams">
-                    <Users className="h-5 w-5 mr-2" />
-                    Prozkoumat týmy
-                  </Link>
-                </Button>
-              </div>
-              
-              {/* Stats Strip */}
-              <div className="grid grid-cols-3 gap-3 sm:gap-8 mt-8 md:mt-12 pt-6 md:pt-8 border-t border-white/20">
-                <div className="text-center">
-                  <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">
-                    {data.stats.teamsCount}
-                  </div>
-                  <div className="text-xs sm:text-sm md:text-base text-gray-300 uppercase tracking-wider font-semibold">
-                    Týmů
-                  </div>
-                </div>
+        <div className="relative z-10 px-4 py-6 md:px-8 md:py-8">
+          <Badge className="mb-2 bg-primary/90 px-2 py-0.5 text-[11px] font-semibold tracking-wide">
+            SEZÓNA {data.seasonName ?? '—'}
+          </Badge>
 
-                <div className="text-center">
-                  <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">
-                    {data.stats.playersCount}
-                  </div>
-                  <div className="text-xs sm:text-sm md:text-base text-gray-300 uppercase tracking-wider font-semibold">
-                    Hráčů
-                  </div>
-                </div>
+          <h1 className="text-2xl font-black leading-tight tracking-tight text-white md:text-3xl">
+            HOSPODSKÁ <span className="text-primary">ŠIPKOVÁ</span> LIGA
+          </h1>
 
-                <div className="text-center">
-                  <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">
-                    {data.stats.matchesProgress.split('/')[1]}
-                  </div>
-                  <div className="text-xs sm:text-sm md:text-base text-gray-300 uppercase tracking-wider font-semibold">
-                    Zápasů
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Decorative Elements */}
-        <div className="absolute bottom-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/4 left-1/4 w-24 h-24 bg-accent/20 rounded-full blur-2xl" />
-      </section>
+          <p className="mt-1 max-w-xl text-sm text-slate-300">
+            Výsledky, tabulka a statistiky hráčů — kolo po kole.
+          </p>
 
-
-      {/* Main Content */}
-      <div className="space-y-12">
-        {/* News & Posts */}
-        <div className="space-y-6 md:space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 mb-1 md:mb-2">NOVINKY</h2>
-              <p className="text-slate-600 font-medium text-sm md:text-base">Nejnovější zprávy z ligy</p>
-            </div>
-            <Button variant="outline" size="sm" asChild className="rounded-xl border-primary text-primary hover:bg-primary hover:text-white w-fit">
-              <Link href="/posts">
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Všechny příspěvky
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Button asChild size="sm" className="h-8 rounded-md bg-primary font-semibold hover:bg-[#9F1239]">
+              <Link href="/standings">
+                <Trophy className="mr-1.5 h-3.5 w-3.5" />
+                Tabulka
               </Link>
             </Button>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-            {data.posts && data.posts.length > 0 ? (
-              data.posts.map((post: any, index: number) => (
-                <Link key={post.id} href={`/posts/${post.id}`} className="block">
-                  <article className={`group relative overflow-hidden rounded-xl md:rounded-2xl bg-white border border-gray-100 card-shadow transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer ${post.pinned ? 'ring-2 ring-primary/20 bg-gradient-to-br from-rose-50/50 to-white' : ''}`}>
-                  {/* Image */}
-                  <div className="relative h-40 md:h-48 overflow-hidden">
-                    <img 
-                      src={post.imageUrl || (index === 0 ? '/hero-dartboard.webp' : '/mobile-app.webp')}
-                      alt={post.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    
-                    {/* Overlay gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                    
-                    {/* Pinned indicator */}
-                    {post.pinned && (
-                      <div className="absolute top-4 right-4 bg-primary text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 backdrop-blur-sm">
-                        <Pin className="h-3 w-3" />
-                        PŘIPNUTO
-                      </div>
-                    )}
-                    
-                    {/* Type badge on image */}
-                    <div className="absolute bottom-4 left-4">
-                      <Badge 
-                        className={`font-bold backdrop-blur-sm ${post.type === 'announcement' ? 'bg-primary/90 text-white' : 'bg-accent/90 text-white'}`}
-                      >
-                        {post.type === 'announcement' ? 'OZNÁMENÍ' : 'NOVINKA'}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="p-4 md:p-6">
-                    <h3 className="text-lg md:text-xl lg:text-2xl font-black text-slate-900 group-hover:text-primary transition-colors mb-2 md:mb-3 leading-tight">
-                      {post.title}
-                    </h3>
-
-                    <p className="text-slate-600 leading-relaxed mb-3 md:mb-4 text-sm md:text-base line-clamp-2">
-                      {post.excerpt}
-                    </p>
-
-                    {/* Author and Date */}
-                    <div className="flex items-center gap-3 mb-3 md:mb-4 pb-3 md:pb-4 border-b border-border">
-                      <div className="size-7 md:size-8 rounded-full bg-gradient-to-br from-primary to-accent grid place-items-center text-white font-bold text-xs">
-                        {post.authorName.charAt(0)}
-                      </div>
-                      <div className="text-sm">
-                        <div className="font-semibold text-slate-900">{post.authorName}</div>
-                        <div className="text-muted-foreground text-xs md:text-sm">
-                          {new Date(post.createdAt).toLocaleDateString('cs-CZ', {
-                            day: 'numeric',
-                            month: 'long'
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Read more button */}
-                    <div className="w-full rounded-xl bg-primary text-white py-2.5 md:py-3 px-4 text-center font-semibold text-sm md:text-base transition-all hover:bg-[#9F1239] flex items-center justify-center gap-2">
-                      Číst více
-                      <Users className="h-4 w-4" />
-                    </div>
-                  </div>
-                </article>
+            <Button asChild size="sm" variant="secondary" className="h-8 rounded-md border border-white/25 bg-white/10 font-semibold text-white hover:bg-white hover:text-slate-900">
+              <Link href="/schedule">
+                <Calendar className="mr-1.5 h-3.5 w-3.5" />
+                Rozpis kol
+              </Link>
+            </Button>
+            {/* Zadání výsledku má smysl nabízet jen tomu, kdo na něj má práva */}
+            {session && (
+              <Button asChild size="sm" variant="secondary" className="h-8 rounded-md border border-white/25 bg-white/10 font-semibold text-white hover:bg-white hover:text-slate-900">
+                <Link href="/schedule">
+                  <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+                  Zapsat výsledek
                 </Link>
-              ))
-            ) : (
-              <Card className="rounded-2xl bg-white card-shadow">
-                <CardContent className="py-16 text-center">
-                  <div className="mx-auto mb-6 size-16 rounded-full bg-muted grid place-items-center">
-                    <MessageSquare className="size-8 text-slate-400" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">Zatím žádné příspěvky</h3>
-                  <p className="text-slate-600">
-                    Kapitáni a administrátoři můžou přidávat oznámení o turnajích a novinkách
-                  </p>
-                </CardContent>
-              </Card>
+              </Button>
             )}
+
+            <div className="tnum ml-auto flex items-center gap-4 text-xs text-slate-300">
+              <span><strong className="text-white">{data.stats.teamsCount}</strong> týmů</span>
+              <span><strong className="text-white">{data.stats.playersCount}</strong> hráčů</span>
+              <span><strong className="text-white">{playedMatches}</strong>/{allMatches} zápasů</span>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Top Players & Standings Section */}
-        <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
-          {/* Top Players */}
-          <div className="lg:col-span-2">
-            <div className="mb-6 md:mb-8">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 mb-1 md:mb-2">TOP HRÁČI</h2>
-              <p className="text-slate-600 font-medium text-sm md:text-base">Nejlepší výkony sezóny</p>
-            </div>
-
-            {!session ? (
-              // Under construction for non-logged-in users
-              <Card className="rounded-xl md:rounded-2xl bg-white border border-gray-100 card-shadow">
-                <CardContent className="py-10 md:py-16 px-4 md:px-8 text-center">
-                  <div className="size-16 md:size-24 mx-auto mb-4 md:mb-6 rounded-full border-4 md:border-8 border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-orange-500/10 grid place-items-center">
-                    <Construction className="h-8 w-8 md:h-12 md:w-12 text-amber-600" />
-                  </div>
-
-                  <Badge className="bg-amber-600 text-white px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-bold mb-3 md:mb-4">
-                    VE VÝVOJI
-                  </Badge>
-
-                  <h3 className="text-xl md:text-2xl font-black text-slate-900 mb-2 md:mb-3">
-                    DETAILNÍ STATISTIKY HRÁČŮ
-                  </h3>
-
-                  <p className="text-slate-600 mb-4 md:mb-6 max-w-md mx-auto text-sm md:text-base">
-                    Připravujeme komplexní žebříček hráčů s detailními statistikami výkonnosti.
-                  </p>
-
-                  <div className="bg-slate-50 rounded-xl p-3 md:p-4 max-w-md mx-auto mb-4 md:mb-6">
-                    <p className="text-xs md:text-sm text-slate-600 mb-2"><strong>Co můžete očekávat:</strong></p>
-                    <ul className="text-xs md:text-sm text-slate-600 space-y-1 text-left">
-                      <li>• HSL Index - žebříček hráčů</li>
-                      <li>• Vysoké náhozy (95+, 133+, 170+)</li>
-                      <li>• Rychlá zavření (CO3-6)</li>
-                      <li>• Historie výsledků</li>
-                    </ul>
-                  </div>
-
-                  <Button asChild className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold text-sm md:text-base">
-                    <Link href="/teams">
-                      <Target className="h-4 w-4 mr-2" />
-                      Zobrazit týmy
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              // Full stats for logged-in users
-              <Card className="rounded-xl md:rounded-2xl bg-white border border-gray-100 card-shadow">
-                <CardContent className="p-3 md:p-6">
-                  <Tabs defaultValue="matches" className="space-y-4 md:space-y-6">
-                    <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-xl">
-                      <TabsTrigger value="matches" className="rounded-lg font-semibold text-xs md:text-sm">Zápasy</TabsTrigger>
-                      <TabsTrigger value="legs" className="rounded-lg font-semibold text-xs md:text-sm">Legy</TabsTrigger>
-                      <TabsTrigger value="throws" className="rounded-lg font-semibold text-xs md:text-sm">Náhozy</TabsTrigger>
-                      <TabsTrigger value="checkouts" className="rounded-lg font-semibold text-xs md:text-sm">Zavření</TabsTrigger>
-                    </TabsList>
-
-                  <TabsContent value="matches" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {[
-                        { name: "Langr Petr", team: "DC Stop Chropyně", played: 0, won: 0, percentage: 0 },
-                        { name: "Dohnal Michal", team: "Rychlí šneci Vlkoš", played: 0, won: 0, percentage: 0 },
-                        { name: "Vítík Adam", team: "ŠK Pivní psi Chropyně", played: 0, won: 0, percentage: 0 }
-                      ].map((player, index) => (
-                        <div key={index} className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-4 hover:shadow-lg transition-all hover:-translate-y-0.5">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="size-12 rounded-full bg-gradient-to-br from-primary to-accent grid place-items-center text-white font-black text-lg">
-                              {index + 1}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-black text-lg text-slate-900">{player.name}</div>
-                              <div className="text-sm text-muted-foreground">{player.team}</div>
-                            </div>
-                          </div>
-                          <div className="text-center mb-2">
-                            <div className="text-2xl md:text-3xl font-black text-primary mb-1">{player.percentage}%</div>
-                            <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Úspěšnost</div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-center mb-3">
-                            <div>
-                              <div className="font-bold text-slate-700">{player.played}</div>
-                              <div className="text-xs text-muted-foreground">Odehráno</div>
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-700">{player.won}</div>
-                              <div className="text-xs text-muted-foreground">Vyhráno</div>
-                            </div>
-                          </div>
-                          <Button size="sm" className="w-full mt-3 rounded-xl bg-primary hover:bg-[#9F1239] text-white font-semibold">
-                            Zobrazit profil
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="legs" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {[
-                        { name: "Kroupa Radek", team: "DC Stop Chropyně", played: 0, won: 0, percentage: 0 },
-                        { name: "Miklik Miroslav", team: "Bochořský koblihy", played: 0, won: 0, percentage: 0 },
-                        { name: "Ošťádal Michal", team: "Cech křivé šipky", played: 0, won: 0, percentage: 0 }
-                      ].map((player, index) => (
-                        <div key={index} className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-4 hover:shadow-lg transition-all hover:-translate-y-0.5">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="size-12 rounded-full bg-gradient-to-br from-accent to-primary grid place-items-center text-white font-black text-lg">
-                              {index + 1}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-black text-lg text-slate-900">{player.name}</div>
-                              <div className="text-sm text-muted-foreground">{player.team}</div>
-                            </div>
-                          </div>
-                          <div className="text-center mb-2">
-                            <div className="text-2xl md:text-3xl font-black text-accent mb-1">{player.percentage}%</div>
-                            <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Úspěšnost legů</div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-center mb-3">
-                            <div>
-                              <div className="font-bold text-slate-700">{player.played}</div>
-                              <div className="text-xs text-muted-foreground">Odehráno</div>
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-700">{player.won}</div>
-                              <div className="text-xs text-muted-foreground">Vyhráno</div>
-                            </div>
-                          </div>
-                          <Button size="sm" className="w-full mt-3 rounded-xl bg-primary hover:bg-[#9F1239] text-white font-semibold">
-                            Zobrazit profil
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="throws" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {[
-                        { name: "Ferenc Michal", team: "DC Stop Chropyně", s95: 0, s133: 0, s170: 0, best: "170+" },
-                        { name: "Prokeš Jaroslav", team: "Rychlí šneci Vlkoš", s95: 0, s133: 0, s170: 0, best: "133+" },
-                        { name: "Bosák Michal", team: "ŠK Pivní psi Chropyně", s95: 0, s133: 0, s170: 0, best: "95+" }
-                      ].map((player, index) => (
-                        <div key={index} className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-4 hover:shadow-lg transition-all hover:-translate-y-0.5">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="size-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 grid place-items-center text-white font-black text-lg">
-                              {index + 1}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-black text-lg text-slate-900">{player.name}</div>
-                              <div className="text-sm text-muted-foreground">{player.team}</div>
-                            </div>
-                          </div>
-                          <div className="text-center mb-2">
-                            <div className="text-2xl md:text-3xl font-black text-purple-600 mb-1">{player.s170}</div>
-                            <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Nejlepší nához</div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-1 text-center mb-3">
-                            <div>
-                              <div className="font-bold text-slate-700 text-sm">{player.s95}</div>
-                              <div className="text-xs text-muted-foreground">95+</div>
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-700 text-sm">{player.s133}</div>
-                              <div className="text-xs text-muted-foreground">133+</div>
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-700 text-sm">{player.s170}</div>
-                              <div className="text-xs text-muted-foreground">170+</div>
-                            </div>
-                          </div>
-                          <Button size="sm" className="w-full mt-3 rounded-xl bg-primary hover:bg-[#9F1239] text-white font-semibold">
-                            Zobrazit profil
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="checkouts" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {[
-                        { name: "Topič Jakub", team: "DC Stop Chropyně", co3: 0, co4: 0, co5: 0, co6: 0, total: 0 },
-                        { name: "Zatloukal Pavel", team: "Bochořský koblihy", co3: 0, co4: 0, co5: 0, co6: 0, total: 0 },
-                        { name: "Kučera Patrik", team: "Hospoda Kanada", co3: 0, co4: 0, co5: 0, co6: 0, total: 0 }
-                      ].map((player, index) => (
-                        <div key={index} className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-4 hover:shadow-lg transition-all hover:-translate-y-0.5">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="size-12 rounded-full bg-gradient-to-br from-warning to-primary grid place-items-center text-white font-black text-lg">
-                              {index + 1}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-black text-lg text-slate-900">{player.name}</div>
-                              <div className="text-sm text-muted-foreground">{player.team}</div>
-                            </div>
-                          </div>
-                          <div className="text-center mb-2">
-                            <div className="text-2xl md:text-3xl font-black text-warning mb-1">{player.total}</div>
-                            <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Celkem zavření</div>
-                          </div>
-                          <div className="grid grid-cols-4 gap-1 text-center mb-3">
-                            <div>
-                              <div className="font-bold text-slate-700 text-sm">{player.co3}</div>
-                              <div className="text-xs text-muted-foreground">3. kolo</div>
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-700 text-sm">{player.co4}</div>
-                              <div className="text-xs text-muted-foreground">4. kolo</div>
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-700 text-sm">{player.co5}</div>
-                              <div className="text-xs text-muted-foreground">5. kolo</div>
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-700 text-sm">{player.co6}</div>
-                              <div className="text-xs text-muted-foreground">6. kolo</div>
-                            </div>
-                          </div>
-                          <Button size="sm" className="w-full mt-3 rounded-xl bg-primary hover:bg-[#9F1239] text-white font-semibold">
-                            Zobrazit profil
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-            )}
-          </div>
-
-          {/* Mini Standings */}
-          <div>
-            <div className="mb-4 md:mb-6">
-              <h3 className="text-xl md:text-2xl font-black text-slate-900 mb-1 md:mb-2">TABULKA</h3>
-              <p className="text-slate-600 font-medium text-sm md:text-base">Aktuální pořadí</p>
-            </div>
-
-            <Card className="rounded-xl md:rounded-2xl bg-white border border-gray-100 card-shadow">
-              <CardHeader className="pb-2 md:pb-3 px-3 md:px-6">
-                <CardTitle className="flex items-center gap-2 text-sm md:text-base">
-                  <Trophy className="h-4 w-4 md:h-5 md:w-5 text-warning" />
-                  Top 5 týmů
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 md:space-y-3 px-3 md:px-6">
-                {data.standings && data.standings.length > 0 ? (
-                  data.standings.map((team: any, index: number) => (
-                    <div key={team.teamId} className="flex items-center justify-between p-2 md:p-3 rounded-lg md:rounded-xl border border-gray-50 hover:bg-rose-50/60 hover:border-primary/20 transition-all">
-                      <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                        <div className={`size-6 md:size-8 rounded-full grid place-items-center font-black text-xs shrink-0 ${
-                          index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white' :
-                          index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
-                          index === 2 ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white' :
-                          'bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        <div className="size-6 md:size-8 rounded-lg bg-white shadow-sm border border-slate-200 p-0.5 md:p-1 shrink-0">
-                          <TeamLogo
-                            teamName={team.teamName}
-                            className="w-full h-full object-contain rounded"
-                            fallbackText={team.shortName}
-                          />
-                        </div>
-                        <div className="text-xs md:text-sm font-semibold text-slate-900 truncate">
-                          {team.teamName}
-                        </div>
-                      </div>
-                      <Badge className="bg-primary text-white font-bold text-xs md:text-sm shrink-0 ml-2">
-                        {team.points}
-                      </Badge>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6 md:py-8 text-muted-foreground text-sm">
-                    Zatím žádné výsledky
-                  </div>
-                )}
-
-                <Button asChild className="w-full mt-3 md:mt-4 rounded-xl bg-primary hover:bg-[#9F1239] text-white font-semibold text-sm md:text-base">
-                  <Link href="/standings">
-                    <Trophy className="h-4 w-4 mr-2" />
-                    Celá tabulka
+      {/* Vlevo dění v lize (výsledky, zápasy, novinky), vpravo úzký pruh
+          s tabulkou a QR kódem */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+        <div className={hasUpcoming ? 'grid gap-4 sm:grid-cols-2' : undefined}>
+        <Panel title="Poslední výsledky" icon={<Trophy className="h-4 w-4 text-warning" />} href="/schedule">
+          {data.recentResults.length === 0 ? (
+            <EmptyRow>Zatím nebyl odehrán žádný zápas.</EmptyRow>
+          ) : (
+            <ul className={`divide-border ${hasUpcoming ? 'divide-y' : 'divide-y sm:grid sm:grid-cols-2 sm:divide-y-0'}`}>
+              {data.recentResults.map((m: any) => (
+                <li key={m.id} className={hasUpcoming ? undefined : 'border-b border-border sm:odd:border-r'}>
+                  <Link
+                    href={`/match/${m.id}`}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-rose-50/50"
+                  >
+                    <span className="tnum w-8 shrink-0 text-[11px] text-muted-foreground">
+                      {m.round ? `${m.round}. k.` : ''}
+                    </span>
+                    <span className={`flex-1 truncate text-xs ${m.homeGames > m.awayGames ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>
+                      {m.homeTeam}
+                    </span>
+                    <span className="tnum shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-900">
+                      {m.homeGames ?? '–'}:{m.awayGames ?? '–'}
+                    </span>
+                    <span className={`flex-1 truncate text-right text-xs ${m.awayGames > m.homeGames ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>
+                      {m.awayTeam}
+                    </span>
                   </Link>
-                </Button>
-              </CardContent>
-            </Card>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
 
-            {/* PWA QR Code */}
-            <div className="mt-4 md:mt-6">
-              <PWAQRCode />
-            </div>
-          </div>
+        {hasUpcoming && (
+        <Panel title="Nejbližší zápasy" icon={<Calendar className="h-4 w-4 text-primary" />} href="/schedule">
+            <ul className="divide-y divide-border">
+              {data.upcomingMatches.map((m: any) => (
+                <li key={m.id}>
+                  <Link
+                    href={`/match/${m.id}`}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-rose-50/50"
+                  >
+                    <span className="tnum w-10 shrink-0 text-[11px] text-muted-foreground">
+                      {m.date ? dayMonth(m.date) : m.round ? `${m.round}. k.` : ''}
+                    </span>
+                    <span className="flex-1 truncate text-xs text-slate-700">{m.homeTeam}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">vs</span>
+                    <span className="flex-1 truncate text-right text-xs text-slate-700">{m.awayTeam}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+        </Panel>
+        )}
         </div>
 
+        {/* Novinky vyplňují místo pod výsledky. V užším sloupci se vyplatí
+            vodorovné položky s náhledem vlevo místo mřížky karet. */}
+        <Panel title="Novinky" icon={<MessageSquare className="h-4 w-4 text-primary" />} href="/posts" hrefLabel="Všechny příspěvky">
+          {data.posts.length === 0 ? (
+            <EmptyRow>Zatím žádné příspěvky.</EmptyRow>
+          ) : (
+            <ul className="divide-y divide-border">
+              {data.posts.map((post: any) => (
+                <li key={post.id}>
+                  <Link
+                    href={`/posts/${post.id}`}
+                    className="group flex gap-3 p-3 hover:bg-rose-50/50"
+                  >
+                    {/* Náhled jen když ho příspěvek opravdu má — dekorativní výplň
+                        z hero fotky jen předstírala, že je ke článku obrázek */}
+                    {post.imageUrl && (
+                      <img
+                        src={post.imageUrl}
+                        alt=""
+                        className="size-14 shrink-0 rounded object-cover"
+                      />
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <Badge
+                          variant="secondary"
+                          className={`px-1.5 py-0 text-[10px] font-semibold ${
+                            post.type === 'announcement'
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-accent/10 text-accent'
+                          }`}
+                        >
+                          {post.type === 'announcement' ? 'OZNÁMENÍ' : 'NOVINKA'}
+                        </Badge>
+                        {post.pinned && (
+                          <Badge variant="secondary" className="flex items-center gap-1 bg-amber-100 px-1.5 py-0 text-[10px] font-semibold text-amber-800">
+                            <Pin className="h-2.5 w-2.5" />
+                            PŘIPNUTO
+                          </Badge>
+                        )}
+                        <span className="text-[11px] text-muted-foreground">
+                          {post.authorName} · {new Date(post.createdAt).toLocaleDateString('cs-CZ', {
+                            day: 'numeric',
+                            month: 'long',
+                          })}
+                        </span>
+                      </div>
+
+                      <h3 className="text-sm font-semibold leading-snug text-slate-900 group-hover:text-primary">
+                        {post.title}
+                      </h3>
+
+                      {post.excerpt && (
+                        <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                          {post.excerpt}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        </div>
+
+        <div className="space-y-4">
+          <Panel title="Tabulka" icon={<Trophy className="h-4 w-4 text-warning" />} href="/standings" hrefLabel="Celá tabulka">
+            {data.standings.length === 0 ? (
+              <EmptyRow>Zatím žádné výsledky.</EmptyRow>
+            ) : (
+              <ul className="divide-y divide-border">
+                {data.standings.map((team: any, index: number) => (
+                  <li key={team.teamId}>
+                    <Link
+                      href={`/team/${team.teamId}`}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-rose-50/50"
+                    >
+                      <span className="tnum w-4 shrink-0 text-xs font-semibold text-slate-500">
+                        {index + 1}
+                      </span>
+                      <span className="size-5 shrink-0 overflow-hidden rounded border border-border bg-white">
+                        <TeamLogo
+                          teamName={team.teamName}
+                          className="h-full w-full object-contain"
+                          fallbackText={team.shortName}
+                        />
+                      </span>
+                      <span className="flex-1 truncate text-xs font-medium text-slate-900">
+                        {team.teamName}
+                      </span>
+                      <span className="tnum shrink-0 text-sm font-bold text-slate-900">
+                        {team.points}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+
+          <PWAQRCode />
+        </div>
       </div>
+
+      {/* Statistiky hráčů zatím nejsou dopočítané pro celou sezónu; odkaz vede
+          na skutečný žebříček místo dřívějšího bloku s vymyšlenými jmény */}
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted px-4 py-3">
+        <div>
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+            <Users className="h-4 w-4 text-accent" />
+            Statistiky hráčů
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {/* /players je pro nepřihlášené zatím rozpracovaná stránka — ať odkaz
+                neslibuje víc, než návštěvník uvidí */}
+            {session
+              ? 'Žebříček podle HŠL indexu, vysoké náhozy (95+, 133+, 170+) a rychlá zavření.'
+              : 'Připravujeme žebříček podle HŠL indexu, vysoké náhozy a rychlá zavření.'}
+          </p>
+        </div>
+        <Button asChild size="sm" variant="outline" className="h-8 rounded-md">
+          <Link href="/players">
+            {session ? 'Zobrazit hráče' : 'Co chystáme'}
+            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </section>
     </div>
   );
 }

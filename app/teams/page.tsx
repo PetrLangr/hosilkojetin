@@ -1,166 +1,253 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Users, Target } from "lucide-react";
 import Link from "next/link";
-import { getTeamLogo, getTeamGradient, getTeamBackgroundGradient } from '@/lib/team-logos';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ChevronRight, Crown, Target } from "lucide-react";
+import { getTeamLogo, getTeamGradient } from '@/lib/team-logos';
+import { PageHeader } from '@/components/layout/page-header';
+import { SeasonSwitcher, ArchiveBanner, type SeasonOption } from '@/components/layout/season-switcher';
 
+/** Datum narození ze soupisky, tak jak ho uvádí přihláška. */
+const birthDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' });
+
+/** Jeden údaj bilance — popisek nahoře, hodnota dole. */
+function Stat({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) {
+  return (
+    <div>
+      <div className="label-muted">{label}</div>
+      <div className={`tnum text-sm font-semibold ${tone ?? 'text-slate-900'}`}>{value}</div>
+    </div>
+  );
+}
 
 export default function Teams() {
   const [teams, setTeams] = useState<any[]>([]);
   const [standings, setStandings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [season, setSeason] = useState<SeasonOption | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!season) return;
+    let cancelled = false;
+
     async function fetchData() {
+      setLoading(true);
+      setOpenId(null);
+      const q = `?season=${encodeURIComponent(season!.id)}`;
       try {
+        // Obojí najednou — dřív se čekalo na týmy a teprve pak na tabulku
         const [teamsRes, standingsRes] = await Promise.all([
-          fetch('/api/teams'),
-          fetch('/api/standings')
+          fetch(`/api/teams${q}`),
+          fetch(`/api/standings${q}`),
         ]);
-
-        if (teamsRes.ok) {
-          const teamsData = await teamsRes.json();
-          setTeams(teamsData);
-        }
-
-        if (standingsRes.ok) {
-          const standingsData = await standingsRes.json();
-          setStandings(standingsData);
-        }
+        if (!cancelled && teamsRes.ok) setTeams(await teamsRes.json());
+        if (!cancelled && standingsRes.ok) setStandings(await standingsRes.json());
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     fetchData();
-  }, []);
+    return () => { cancelled = true; };
+  }, [season]);
 
-  // Helper to get team points from standings
-  const getTeamPoints = (teamId: string) => {
-    const teamStanding = standings.find((s: any) => s.teamId === teamId);
-    return teamStanding?.points ?? 0;
-  };
+  // U archivních sezón nese tabulka jako teamId převzatý název týmu, ne id z DB,
+  // takže se párování zkouší nejdřív podle id a teprve pak podle názvu.
+  const standingOf = (team: any) =>
+    standings.find((s: any) => s.teamId === team.id) ??
+    standings.find((s: any) => s.teamName === team.name);
 
-  // Sort teams by points
-  const sortedTeams = [...teams].sort((a, b) => getTeamPoints(b.id) - getTeamPoints(a.id));
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Target className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-slate-600">Načítám týmy...</p>
-        </div>
-      </div>
-    );
-  }
+  // Řadíme podle abecedy. Pořadí podle bodů patří do tabulky — kdyby stálo i tady,
+  // byly by ze dvou stránek dvě verze téhož žebříčku.
+  const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name, 'cs'));
 
   return (
-    <div className="space-y-8">
-      {/* Hero Section */}
-      <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-white rounded-3xl border border-gray-100 card-shadow">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight">
-            TÝMY <span className="text-primary">HŠL</span>
-          </h1>
-          <p className="text-xl text-slate-600 mb-6">
-            12 týmů bojuje o titul v sezóně 2025/2026
-          </p>
-          <div className="flex justify-center gap-4">
-            <Badge className="bg-primary text-white px-4 py-2 font-bold">
-              {teams.length} TÝMŮ V LIZE
-            </Badge>
-          </div>
+    <div>
+      <PageHeader
+        title="Týmy"
+        subtitle={season ? `${season.name} · ${teams.length} týmů` : '…'}
+        actions={<SeasonSwitcher value={season?.id ?? null} onChange={setSeason} />}
+      >
+        {season && <ArchiveBanner season={season} />}
+      </PageHeader>
+
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+          <Target className="h-4 w-4 animate-spin text-primary" />
+          Načítám týmy…
         </div>
-      </div>
+      )}
 
-      {/* Teams Grid */}
-      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {sortedTeams.map((team: any, index: number) => (
-          <Link key={team.id} href={`/team/${team.id}`}>
-            <Card className="rounded-2xl bg-white border border-gray-100 card-shadow hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer h-full group overflow-hidden">
-              {/* Team Header with Logo */}
-              <div className="relative">
-                <div className={`h-32 bg-gradient-to-br ${getTeamBackgroundGradient(team.name)} relative overflow-hidden`}>
-                  {/* Team Pattern/Background */}
-                  <div className="absolute inset-0 opacity-10">
-                    <div className="absolute top-4 right-4 size-20 rounded-full border-4 border-white/30" />
-                    <div className="absolute bottom-4 left-4 size-12 rounded-full border-2 border-white/20" />
-                  </div>
-                  
-                  {/* Team Logo */}
-                  <div className="absolute bottom-4 left-4">
-                    <div className="size-16 rounded-2xl bg-white shadow-lg border-2 border-white/50 p-2 overflow-hidden">
-                      <img 
-                        src={getTeamLogo(team.name)}
-                        alt={team.name}
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          // Fallback to gradient with initials if image fails
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const fallback = target.parentElement;
-                          if (fallback) {
-                            fallback.className = `size-16 rounded-2xl bg-gradient-to-br ${getTeamGradient(team.name)} grid place-items-center text-white shadow-lg border-2 border-white/20`;
-                            fallback.innerHTML = `<span class="font-black text-xl">${team.shortName || team.name.split(' ').map((w: string) => w[0]).join('').slice(0, 3).toUpperCase()}</span>`;
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Position Badge */}
-                  <div className="absolute top-4 right-4">
-                    <Badge className={`font-black text-sm px-3 py-1 ${
-                      index < 3 ? 'bg-primary text-white' : 'bg-white/90 text-slate-700'
-                    }`}>
-                      #{index + 1}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
+      {!loading && teams.length === 0 && (
+        <div className="rounded-lg border border-border bg-white px-4 py-10 text-center text-sm text-muted-foreground">
+          Pro tuto sezónu nejsou zapsané žádné týmy.
+        </div>
+      )}
 
-              {/* Team Info */}
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-xl font-black text-slate-900 group-hover:text-primary transition-colors leading-tight mb-1">
-                      {team.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {team.city || 'Město neuvedeno'}
-                    </p>
-                  </div>
-                  
-                  {/* Team Stats */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center bg-slate-50 rounded-xl p-3">
-                      <div className="font-black text-2xl text-slate-900">{team._count.players}</div>
-                      <div className="text-xs text-muted-foreground font-semibold uppercase">Hráčů</div>
-                    </div>
-                    <div className="text-center bg-slate-50 rounded-xl p-3">
-                      <div className="font-black text-2xl text-slate-900">{getTeamPoints(team.id)}</div>
-                      <div className="text-xs text-muted-foreground font-semibold uppercase">Bodů</div>
-                    </div>
-                  </div>
-                  
-                  {/* View Team Button */}
-                  <Button className="w-full rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold group-hover:bg-[#9F1239] transition-all">
-                    <Users className="h-4 w-4 mr-2" />
-                    Zobrazit tým
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {!loading && teams.length > 0 && (
+        <>
+          <div className="overflow-hidden rounded-lg border border-border bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border bg-muted hover:bg-muted">
+                  <TableHead className="w-8" />
+                  <TableHead>Tým</TableHead>
+                  <TableHead className="hidden md:table-cell">Hrací místo</TableHead>
+                  <TableHead className="hidden lg:table-cell w-44">Kapitán</TableHead>
+                  <TableHead className="w-16 text-center" title="Počet hráčů na soupisce">Hráčů</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedTeams.map((team: any) => {
+                  const open = openId === team.id;
+                  const standing = standingOf(team);
+                  const players = team.players ?? [];
+
+                  return [
+                    <TableRow
+                      key={team.id}
+                      onClick={() => setOpenId(open ? null : team.id)}
+                      // Řádek se chová jako rozbalovací tlačítko, takže musí jít
+                      // ovládat i z klávesnice, ne jen myší
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setOpenId(open ? null : team.id);
+                        }
+                      }}
+                      aria-expanded={open}
+                      aria-controls={`tym-${team.id}`}
+                      className={`cursor-pointer border-border hover:bg-rose-50/50 focus:outline-none focus-visible:bg-rose-50 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary ${open ? 'bg-rose-50/50' : ''}`}
+                    >
+                      <TableCell className="text-center">
+                        <ChevronRight
+                          className={`h-4 w-4 text-slate-400 transition-transform ${open ? 'rotate-90' : ''}`}
+                        />
+                      </TableCell>
+
+                      <TableCell className="max-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="size-6 shrink-0 overflow-hidden rounded border border-border bg-white">
+                            <img
+                              src={getTeamLogo(team.name)}
+                              alt=""
+                              className="h-full w-full object-contain"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const fallback = target.parentElement;
+                                if (fallback) {
+                                  fallback.className = `size-6 shrink-0 rounded bg-gradient-to-br ${getTeamGradient(team.name)} grid place-items-center text-white`;
+                                  fallback.innerHTML = `<span class="text-[9px] font-bold">${
+                                    team.shortName || team.name.split(' ').map((w: string) => w[0]).join('').slice(0, 3).toUpperCase()
+                                  }</span>`;
+                                }
+                              }}
+                            />
+                          </div>
+                          <span className="truncate font-medium text-slate-900">{team.name}</span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="hidden max-w-0 md:table-cell">
+                        {/* Jedno místo pro lokalitu. Město se neukazuje zvlášť — u archivních
+                            sezón se do city naimportovalo hrací místo, takže by tu stál
+                            dvakrát tentýž údaj a ukrajoval šířku názvu týmu. */}
+                        <span className="block truncate text-xs text-slate-600" title={team.venue || team.city || ''}>
+                          {team.venue || team.city || '—'}
+                        </span>
+                      </TableCell>
+
+                      <TableCell className="hidden lg:table-cell">
+                        <span className="block truncate text-xs text-slate-600">
+                          {team.captain?.name || '—'}
+                        </span>
+                      </TableCell>
+
+                      <TableCell className="tnum text-center text-slate-600">
+                        {team._count?.players ?? players.length}
+                      </TableCell>
+                    </TableRow>,
+
+                    open && (
+                      <TableRow key={`${team.id}-detail`} className="border-border hover:bg-transparent">
+                        <TableCell id={`tym-${team.id}`} colSpan={5} className="h-auto bg-muted/50 p-0">
+                          <div className="grid gap-4 px-4 py-3 lg:grid-cols-3">
+                            <div className="lg:col-span-2">
+                              <div className="label-muted mb-1.5">Soupiska</div>
+                              {players.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">Soupiska není zapsaná.</p>
+                              ) : (
+                                <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
+                                  {players.map((p: any) => (
+                                    <li key={p.id} className="flex items-baseline gap-1.5 text-xs">
+                                      {p.id === team.captainId && (
+                                        <Crown className="h-3 w-3 shrink-0 self-center text-warning" aria-label="kapitán" />
+                                      )}
+                                      <span className="truncate text-slate-700">{p.name}</span>
+                                      {p.dateOfBirth && (
+                                        <span className="tnum ml-auto shrink-0 text-[11px] text-muted-foreground">
+                                          {birthDate(p.dateOfBirth)}
+                                        </span>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+
+                            <div>
+                              <div className="label-muted mb-1.5">Bilance sezóny</div>
+                              {standing ? (
+                                <div className="grid grid-cols-4 gap-3">
+                                  <Stat label="Z" value={standing.played} />
+                                  <Stat label="V" value={standing.won} tone="text-success" />
+                                  <Stat label="P" value={standing.lost} tone="text-destructive" />
+                                  <Stat label="Body" value={standing.points} />
+                                  <div className="col-span-4">
+                                    <div className="label-muted">Legy</div>
+                                    <div className="tnum text-sm font-semibold text-slate-900">
+                                      {standing.legsFor}:{standing.legsAgainst}{' '}
+                                      <span className={standing.legDifference >= 0 ? 'text-success' : 'text-destructive'}>
+                                        ({standing.legDifference > 0 ? '+' : ''}{standing.legDifference})
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">Zatím bez odehraných zápasů.</p>
+                              )}
+
+                              <Link
+                                href={`/schedule`}
+                                className="mt-2 inline-block text-xs text-muted-foreground underline hover:text-primary"
+                              >
+                                Zápasy najdeš v rozpisu kol
+                              </Link>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ),
+                  ];
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          <p className="mt-2 text-xs text-muted-foreground">
+            Klikem na tým rozbalíš soupisku a bilanci. Pořadí a body najdeš v{' '}
+            <Link href="/standings" className="underline hover:text-primary">tabulce</Link>.
+          </p>
+        </>
+      )}
     </div>
   );
 }
