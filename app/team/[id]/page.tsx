@@ -269,9 +269,10 @@ export default async function TeamPage({ params }: TeamPageProps) {
                                 </div>
                               </TableCell>
                               <TableCell className="px-2 md:px-4 py-2 md:py-4">
-                                <Link href={`/player/${player.id}`} className="hover:underline">
+                                {/* Detail hráče byl zrušen — jméno zůstává jako text */}
+                                <div>
                                   <div>
-                                    <div className="font-bold text-primary hover:text-primary/80 flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                                    <div className="font-bold text-slate-900 flex items-center gap-1 md:gap-2 text-xs md:text-sm">
                                       <span className="truncate max-w-[120px] md:max-w-none">{player.name}</span>
                                       {player.role === 'kapitán' && <Crown className="h-3 w-3 md:h-4 md:w-4 shrink-0" />}
                                     </div>
@@ -281,7 +282,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                                       </div>
                                     )}
                                   </div>
-                                </Link>
+                                </div>
                               </TableCell>
                               <TableCell className="px-2 md:px-4 py-2 md:py-4">
                                 <Badge

@@ -197,7 +197,7 @@ export default function SimplifiedMatchPage({ params }: MatchPageProps) {
               Pouze kapitáni týmů nebo administrátoři mohou zadávat výsledky tohoto zápasu.
             </p>
             <div className="flex flex-col gap-3 max-w-xs mx-auto">
-              <Link href="/matches">
+              <Link href="/schedule">
                 <Button variant="outline" className="w-full">
                   Zpět na seznam zápasů
                 </Button>
@@ -227,7 +227,7 @@ export default function SimplifiedMatchPage({ params }: MatchPageProps) {
             Zadávání výsledků zápasu
           </span>
         </div>
-        <Link href="/matches">
+        <Link href="/schedule">
           <Button variant="outline" size="sm">
             Zpět na zápasy
           </Button>

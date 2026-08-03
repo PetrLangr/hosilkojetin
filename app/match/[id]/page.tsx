@@ -247,7 +247,7 @@ export default function MatchPage({ params }: MatchPageProps) {
                   
                   <div className="flex justify-center gap-4">
                     <Button asChild variant="outline" className="rounded-xl">
-                      <Link href="/matches">
+                      <Link href="/schedule">
                         <Shield className="h-4 w-4 mr-2" />
                         Zpět na zápasy
                       </Link>

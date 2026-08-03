@@ -81,7 +81,7 @@ export function PublicMatchView({ match, canEdit = false, onUpgradeToDetailed }:
       {/* Navigation */}
       <div className="flex items-center gap-4">
         <Button asChild variant="outline" className="rounded-xl">
-          <Link href="/matches">
+          <Link href="/schedule">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Zpět na zápasy
           </Link>
