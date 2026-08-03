@@ -71,6 +71,16 @@ model Season {
   startDate DateTime
   endDate   DateTime
   isActive  Boolean  @default(false)
+
+  // Archiv historických sezón (přeneseno ze starého webu HŠL).
+  // Bodování se v čase měnilo: do 2016/17 se hrálo 3/0 (bez VP/PP), od 2017/18 platí 3/2/1/0.
+  pointsSystem   String  @default("3/2/1/0")
+  // Konečná tabulka tak, jak ji liga vyhlásila. Uchovává se doslovně, protože
+  // dopočet dnešními pravidly by u starších sezón dal jiná čísla, než tehdy platila.
+  finalStandings Json?
+  isArchived     Boolean @default(false)
+  archiveNote    String?
+
   teams     Team[]
   matches   Match[]
   playerStats PlayerStats[]
@@ -83,6 +93,7 @@ model Team {
   name      String
   shortName String
   city      String
+  venue     String?  // hrací místo (hospoda), jak ho uvádí soupiska
   logoUrl   String?
   captain   Player?  @relation("CaptainOf", fields: [captainId], references: [id])
   captainId String?

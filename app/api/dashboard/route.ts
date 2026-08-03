@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resolveSeason } from '@/lib/season';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const season = await prisma.season.findFirst({
-      where: { isActive: true }
-    });
+    const season = await resolveSeason(request);
 
     if (!season) {
       return NextResponse.json({ error: 'No active season found' }, { status: 404 });

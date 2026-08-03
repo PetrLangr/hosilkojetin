@@ -1,9 +1,61 @@
+// Oficiální loga ze starého webu HŠL (public/logos/official_*). Klíč je název týmu
+// znormalizovaný (bez diakritiky, velikosti písmen a nealfanumerických znaků), aby
+// sedělo i na varianty zápisu napříč sezónami ("Š Vepři K" i "Š VEPŘI K" i "...Kojetín").
+// Pokrývá 6 současných týmů, které logo mají, a historické týmy z archivu.
+// Týmy, které na starém webu měly jen zástupné "LOGO TÝMU", tu nejsou — spadnou na
+// své současné logo (níže) nebo na výchozí obrázek.
+const normalizeTeam = (name: string) =>
+  name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+
+const officialLogos: Record<string, string> = {
+  bochorskykoblihy: 'official_bochor.jpg',
+  stonedloboponies: 'official_badastone.jpg',
+  dckrakendrinov: 'official_dckrakendrinov.jpg',
+  dckrakendrinova: 'official_dckrakendrinov.jpg',
+  dckrakendrinovb: 'official_dckrakendrinov.jpg',
+  dcracekchropyne: 'official_racek.jpg',
+  dcstopchropyne: 'official_stop.jpeg',
+  draci: 'official_draci.jpg',
+  dracia: 'official_draci.jpg',
+  dracipocenice: 'official_draci.jpg',
+  dracib: 'official_dracci.jpg',
+  draccipocenice: 'official_dracci.jpg',
+  kinocity: 'official_Kinocity.jpg',
+  kinocitykojetin: 'official_Kinocity.jpg',
+  kromerizstilvi: 'official_lvi.png',
+  medvedi: 'official_meda.jpg',
+  panteri: 'official_panter.jpeg',
+  panteri2016: 'official_panter.jpeg',
+  rychlisnecivlkos: 'official_sneci.jpeg',
+  sportbarbadaa: 'official_bada.png',
+  sportbarbadab: 'official_bada.png',
+  syslitvorovice: 'official_sysli.jpg',
+  tygriprostejov: 'official_ty.jpg',
+  sveprik: 'official_vepri.jpg',
+  sveprikkojetin: 'official_vepri.jpg',
+  sveprikb: 'official_prasatab.jpg',
+  skbrablencikojetin: 'official_brablenci.jpg',
+  // Hannibal Lecter měl na webu jednu variantu loga; v datech je zapsán mnoha způsoby
+  hanniballecter: 'official_hannibal.jpg',
+  skhanniballecter: 'official_hannibal.jpg',
+  skhaniballecter: 'official_hannibal.jpg',
+  hanniballectera: 'official_hannibal.jpg',
+  hanniballecterb: 'official_hannibal.jpg',
+  skhanniballectera: 'official_hannibal.jpg',
+  skhanniballecterb: 'official_hannibal.jpg',
+};
+
 // Team logo mapping based on team names
 export function getTeamLogo(teamName: string): string {
+  const official = officialLogos[normalizeTeam(teamName)];
+  if (official) return `/logos/${official}`;
+
   const logoMapping: Record<string, string> = {
     'AK Kojetín': '/logos/akkojetin_logo.png',
     'Bochořský koblihy': '/logos/bochorskykoblihy_logo.png',
-    'Cech křivé šipky': '/logos/cechkrivesipky_logo.png',
+    // Nové logo dodané s přihláškou na sezónu 2026/2027 (terč se třemi šipkami).
+    // Předchozí verze zůstává v repozitáři jako cechkrivesipky_logo.png.
+    'Cech křivé šipky': '/logos/cechkrivesipky_logo.jpg',
     'DC Kraken Dřínov': '/logos/dckrakendrinov_logo.png',
     'DC Stop Chropyně': '/logos/dcstopchropyne_logo.png',
     'Dark Horse Moštárna': '/logos/darkhorsemostarna_logo.png',
