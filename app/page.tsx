@@ -8,6 +8,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { calculateStandings, sortStandings, readResult } from "@/lib/standings";
 
+// Homepage čte přihlášení (getServerSession → headers()) a živá data ze sezóny.
+// Bez tohohle ji Next zkouší předgenerovat staticky: build hlásí DYNAMIC_SERVER_USAGE,
+// try/catch kolem session to spolkne a na webu pak zůstane natrvalo verze z okamžiku
+// buildu — odhlášená a se starými výsledky.
+export const dynamic = 'force-dynamic';
+
 async function getHomepageData() {
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();

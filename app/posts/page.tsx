@@ -4,6 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { prisma } from "@/lib/prisma";
 
+// Výpis příspěvků se čte z databáze při každém požadavku. Staticky předgenerovaný
+// by ukazoval jen ty, které existovaly v době buildu, a nový příspěvek by se
+// objevil až po dalším nasazení.
+export const dynamic = 'force-dynamic';
+
 /**
  * Příspěvky z databáze. Dřív tu byla natvrdo zapsaná dvojice smyšlených novinek
  * s odkazy na id "1" a "2", která v databázi neexistují — proklik z výpisu tedy
