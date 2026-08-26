@@ -42,7 +42,9 @@ export async function Footer() {
           {/* Brand Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <img src="/logo_hsl.svg" alt="HŠL" className="h-14 w-auto brightness-0 invert" />
+              <span className="flex items-center rounded-lg bg-white p-1.5 shadow-sm">
+                <img src="/logo-hsl-full.png" alt="Hospodská šipková liga" className="h-12 w-auto" />
+              </span>
               <div>
                 <h3 className="text-2xl font-black text-white">HŠL</h3>
                 <p className="text-white/80 text-sm font-semibold">Hospodská Šipková Liga</p>
@@ -98,11 +100,11 @@ export async function Footer() {
             <h4 className="text-lg font-black text-white">Kontakt</h4>
             <div className="space-y-4">
               <div>
-                <p className="text-sm font-bold text-white mb-1">Vedoucí ligy</p>
-                <p className="text-sm text-white/90">Ladislav Kučírek</p>
+                <p className="text-sm font-bold text-white mb-1">Ředitel soutěže</p>
+                <p className="text-sm text-white/90">Michal Baďura</p>
                 <div className="flex items-center gap-2 text-white/80 mt-1">
                   <Phone className="h-3 w-3" />
-                  <span className="text-sm">777 852 277</span>
+                  <span className="text-sm">608 755 050</span>
                 </div>
               </div>
               <div>
@@ -134,6 +136,28 @@ export async function Footer() {
                 </Link>
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* Sponzor — logo má vlastní bílý ovál, na vínovém pozadí funguje samo o sobě
+            a další podklad pod něj by dělal rámeček v rámečku */}
+        <div className="border-t border-white/20 py-6">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-6">
+            <span className="text-xs font-bold uppercase tracking-widest text-white/70">
+              Sponzor ligy
+            </span>
+            <Link
+              href="https://www.pizzamarkyz.cz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-opacity hover:opacity-80"
+            >
+              <img
+                src="/sponzor-pizza-markyz.png"
+                alt="Pizza Markýz"
+                className="h-16 w-auto sm:h-20"
+              />
+            </Link>
           </div>
         </div>
 

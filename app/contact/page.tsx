@@ -13,9 +13,16 @@ import {
 import { PageHeader } from "@/components/layout/page-header";
 import { LEAGUE_DOCS, docUrl, formatBytes } from "@/lib/league-files";
 
-const ICON = { xls: FileSpreadsheet, doc: FileText, odt: FileText, pdf: FileType } as const;
+const ICON = {
+  xls: FileSpreadsheet,
+  xlsx: FileSpreadsheet,
+  doc: FileText,
+  odt: FileText,
+  pdf: FileType,
+} as const;
 const COLOR = {
   xls: "text-emerald-600 bg-emerald-50",
+  xlsx: "text-emerald-600 bg-emerald-50",
   doc: "text-blue-600 bg-blue-50",
   odt: "text-blue-600 bg-blue-50",
   pdf: "text-rose-600 bg-rose-50",
@@ -24,7 +31,7 @@ const COLOR = {
 const FAQ = [
   {
     q: "Jak se zapojit do ligy?",
-    a: "Vyplňte přihlášku výše a pošlete ji vedoucímu ligy. Rád vás provede zbytkem registrace.",
+    a: "Vyplňte přihlášku výše a pošlete ji řediteli soutěže. Rád vás provede zbytkem registrace.",
   },
   {
     q: "Kdy se hrají zápasy?",
@@ -122,10 +129,10 @@ export default function ContactPage() {
           <Panel title="Kdo vám pomůže" icon={<Phone className="h-4 w-4 text-primary" />}>
             <ul className="divide-y divide-border">
               <Person
-                role="Vedoucí ligy"
-                name="Ladislav Kučírek"
-                value="777 852 277"
-                href="tel:+420777852277"
+                role="Ředitel soutěže"
+                name="Michal Baďura"
+                value="608 755 050"
+                href="tel:+420608755050"
                 action="Volat"
                 icon={<Phone className="h-4 w-4 text-primary" />}
               />
@@ -178,7 +185,7 @@ export default function ContactPage() {
                           {d.note}
                         </span>
                       </span>
-                      <span className="label-muted w-8 shrink-0 text-right">{d.kind}</span>
+                      <span className="label-muted w-9 shrink-0 text-right">{d.kind}</span>
                       <span className="tnum w-14 shrink-0 text-right text-[11px] text-muted-foreground">
                         {formatBytes(d.bytes)}
                       </span>

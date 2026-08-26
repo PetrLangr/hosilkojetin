@@ -26,8 +26,13 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-primary/20 bg-gradient-to-r from-primary to-[#9F1239] shadow-lg">
       <div className="container mx-auto px-4 lg:px-6 h-14 flex items-center justify-between">
+        {/* Oficiální logo je černo-zlaté a na vínové liště by zaniklo, proto sedí
+            na bílé destičce. Nápis HŠL vedle zůstává — v logu je text tak malý,
+            že se v liště nedá přečíst. */}
         <Link href="/" className="group transition-all flex items-center gap-2">
-          <img src="/logo_hsl.svg" alt="HŠL" className="h-7 w-auto brightness-0 invert" />
+          <span className="flex h-9 items-center rounded-md bg-white px-1.5 shadow-sm ring-1 ring-black/5">
+            <img src="/logo-hsl-full.png" alt="Hospodská šipková liga" className="h-7 w-auto" />
+          </span>
           <span className="text-lg font-black text-white group-hover:text-white/80 transition-colors tracking-tight">
             HŠL
           </span>
