@@ -443,28 +443,23 @@ export default async function Homepage() {
             ) : (
               <ul className="divide-y divide-border">
                 {data.standings.map((team: any, index: number) => (
-                  <li key={team.teamId}>
-                    <Link
-                      href={`/team/${team.teamId}`}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-rose-50/50"
-                    >
-                      <span className="tnum w-4 shrink-0 text-xs font-semibold text-slate-500">
-                        {index + 1}
-                      </span>
-                      <span className="size-5 shrink-0 overflow-hidden rounded border border-border bg-white">
-                        <TeamLogo
-                          teamName={team.teamName}
-                          className="h-full w-full object-contain"
-                          fallbackText={team.shortName}
-                        />
-                      </span>
-                      <span className="flex-1 truncate text-xs font-medium text-slate-900">
-                        {team.teamName}
-                      </span>
-                      <span className="tnum shrink-0 text-sm font-bold text-slate-900">
-                        {team.points}
-                      </span>
-                    </Link>
+                  <li key={team.teamId} className="flex items-center gap-2 px-3 py-2">
+                    <span className="tnum w-4 shrink-0 text-xs font-semibold text-slate-500">
+                      {index + 1}
+                    </span>
+                    <span className="size-5 shrink-0 overflow-hidden rounded border border-border bg-white">
+                      <TeamLogo
+                        teamName={team.teamName}
+                        className="h-full w-full object-contain"
+                        fallbackText={team.shortName}
+                      />
+                    </span>
+                    <span className="flex-1 truncate text-xs font-medium text-slate-900">
+                      {team.teamName}
+                    </span>
+                    <span className="tnum shrink-0 text-sm font-bold text-slate-900">
+                      {team.points}
+                    </span>
                   </li>
                 ))}
               </ul>

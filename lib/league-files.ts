@@ -60,20 +60,6 @@ export const LEAGUE_DOCS: LeagueDoc[] = [
     kind: 'xls',
     bytes: 181760,
   },
-  {
-    file: 'karta-hrace.xlsx',
-    title: 'Karta hráče',
-    note: 'Šablona hráčské karty — přezdívka, šipky, oblíbené double',
-    kind: 'xlsx',
-    bytes: 33818,
-  },
-  {
-    file: 'zapis-utkani.xls',
-    title: 'Zápis utkání (starší, Excel)',
-    note: 'Původní excelová verze zápisu',
-    kind: 'xls',
-    bytes: 1052672,
-  },
 ];
 
 export const docUrl = (file: string) => `/dokumenty/${file}`;
