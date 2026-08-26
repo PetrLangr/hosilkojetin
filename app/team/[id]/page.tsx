@@ -370,16 +370,20 @@ export default async function TeamPage({ params }: TeamPageProps) {
                                     TBD
                                   </Badge>
                                 )}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="rounded-lg md:rounded-xl border-primary text-primary hover:bg-primary hover:text-white font-semibold text-xs md:text-sm px-2 md:px-3"
-                                  asChild
-                                >
-                                  <Link href={`/match/${match.id}`}>
-                                    Detail
-                                  </Link>
-                                </Button>
+                                {/* Detail nezadaného zápasu vyžaduje přihlášení, tak ho
+                                    nenabízíme — u naplánovaného zápasu není co ukázat. */}
+                                {hasResult && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-lg md:rounded-xl border-primary text-primary hover:bg-primary hover:text-white font-semibold text-xs md:text-sm px-2 md:px-3"
+                                    asChild
+                                  >
+                                    <Link href={`/match/${match.id}`}>
+                                      Detail
+                                    </Link>
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           );

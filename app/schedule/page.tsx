@@ -69,13 +69,32 @@ function MatchRow({
     : won ? 'font-semibold text-slate-900'
     : 'text-slate-600';
 
+  // Detail zápasu je veřejný, jen když je zápas odehraný — u naplánovaného vyhodí
+  // návštěvníka na přihlášení. Nezadaný zápas proto není odkaz; kapitán a admin
+  // se k zadání výsledku dostanou tlačítkem na konci řádku.
+  const TeamName = ({
+    name,
+    className,
+  }: {
+    name: string;
+    className: string;
+  }) =>
+    played ? (
+      <Link href={`/match/${match.id}`} className={`${className} hover:underline`}>
+        {name}
+      </Link>
+    ) : (
+      <span className={className}>{name}</span>
+    );
+
   return (
     <li className="flex items-center gap-2 px-3 py-1.5 hover:bg-rose-50/50">
       <span className="tnum w-12 shrink-0 text-[11px] text-muted-foreground">{lead ?? ''}</span>
 
-      <Link href={`/match/${match.id}`} className={`flex-1 truncate text-right text-xs hover:underline ${nameClass(homePicked, homeWon)}`}>
-        {match.homeTeam.name}
-      </Link>
+      <TeamName
+        name={match.homeTeam.name}
+        className={`flex-1 truncate text-right text-xs ${nameClass(homePicked, homeWon)}`}
+      />
       <TeamMark name={match.homeTeam.name} shortName={match.homeTeam.shortName} />
 
       {played && score ? (
@@ -90,9 +109,10 @@ function MatchRow({
       )}
 
       <TeamMark name={match.awayTeam.name} shortName={match.awayTeam.shortName} />
-      <Link href={`/match/${match.id}`} className={`flex-1 truncate text-xs hover:underline ${nameClass(awayPicked, awayWon)}`}>
-        {match.awayTeam.name}
-      </Link>
+      <TeamName
+        name={match.awayTeam.name}
+        className={`flex-1 truncate text-xs ${nameClass(awayPicked, awayWon)}`}
+      />
 
       {isAdmin && (
         <Button asChild size="sm" variant="outline" className="ml-1 h-6 shrink-0 rounded px-1.5 text-[11px]">

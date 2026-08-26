@@ -21,6 +21,7 @@ interface SeasonSummary {
   archiveNote: string | null;
   teamCount: number;
   matchCount: number;
+  playedCount: number;
   playerCount: number;
   rounds: number;
   winner: Placing | null;
@@ -29,10 +30,11 @@ interface SeasonSummary {
 }
 
 /**
- * Ročník bez odehraných zápasů se nedohrál — 2014/15 má na starém webu jen tabulku
- * po 3. kole. Tým na prvním místě tehdy nebyl mistr, jen průběžně vedl.
+ * Ročník bez jediného odehraného zápasu nemá mistra — tým na prvním místě tabulky
+ * jen průběžně vedl. Rozhoduje počet odehraných, ne naplánovaných zápasů: rozjetá
+ * sezóna má celý rozpis v databázi od prvního dne.
  */
-const unfinished = (s: SeasonSummary) => s.matchCount === 0;
+const unfinished = (s: SeasonSummary) => s.playedCount === 0;
 
 /** Logo týmu v malém čtverečku, sjednocené napříč tabulkou i síní slávy. */
 function TeamMark({ name, size = "size-5" }: { name: string; size?: string }) {
@@ -55,8 +57,10 @@ export default function ArchivePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Souhrn je historická statistika, tedy odehrané zápasy — rozpis běžící sezóny
+  // do něj nepatří. Ve sloupci u řádku naopak stojí matchCount, tam jde o rozsah ročníku.
   const totals = {
-    matches: seasons.reduce((a, s) => a + s.matchCount, 0),
+    matches: seasons.reduce((a, s) => a + s.playedCount, 0),
     teams: seasons.reduce((a, s) => a + s.teamCount, 0),
     players: seasons.reduce((a, s) => a + s.playerCount, 0),
   };
@@ -155,9 +159,7 @@ export default function ArchivePage() {
                   {seasons.map((s) => {
                     const champion = s.winner && !unfinished(s) && !s.isActive;
                     // Před prvním kolem vrací API jako "vítěze" abecedně první tým s nulou
-                    // bodů — dokud se nehrálo, nemá se čí jméno ukazovat. Týká se jen
-                    // rozjeté sezóny; 2014/15 zápasy taky nemá, ale tabulku ze starého
-                    // webu ano, takže její pořadí je skutečné.
+                    // bodů — dokud se nehrálo, nemá se čí jméno ukazovat.
                     const noResults = s.isActive && unfinished(s);
                     return (
                       <TableRow key={s.id} className="border-border hover:bg-rose-50/50">

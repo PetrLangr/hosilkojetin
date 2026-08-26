@@ -29,13 +29,17 @@ const int = (raw: string | undefined) => Number((raw ?? '').replace(/\D/g, '')) 
 export function officialStandings(season: {
   finalStandings: any;
   pointsSystem: string;
-}): (TeamRecord & { official: true })[] {
+}): (TeamRecord & { official: true; hasLegs: boolean })[] {
   const { header, rows } = season.finalStandings as { header: string[]; rows: string[][] };
   const idx: Record<string, number> = {};
   header.forEach((h, i) => {
     const key = COLUMN[norm(h)];
     if (key && !(key in idx)) idx[key] = i;
   });
+
+  // Nejstarší ročníky legy do tabulky nepočítaly. Bez tohoto příznaku by se
+  // ve sloupcích legů zobrazily nuly, což tvrdí něco jiného než "neuvádí se".
+  const hasLegs = 'legs' in idx;
 
   return rows
     .map((row) => {
@@ -56,6 +60,7 @@ export function officialStandings(season: {
         points: int(row[idx.points]),
         form: [],
         official: true as const,
+        hasLegs,
       };
     })
     .filter((r) => r.teamName && r.teamName !== '0');

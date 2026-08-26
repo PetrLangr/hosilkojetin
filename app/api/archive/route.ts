@@ -10,9 +10,12 @@ export async function GET() {
 
     const summaries = await Promise.all(
       seasons.map(async (season) => {
-        const [teamCount, matchCount, playerCount] = await Promise.all([
+        // playedCount, ne matchCount: rozjetá sezóna má rozpis nahraný dopředu,
+        // takže počet zápasů o odehraném ročníku nic neříká
+        const [teamCount, matchCount, playedCount, playerCount] = await Promise.all([
           prisma.team.count({ where: { seasonId: season.id } }),
           prisma.match.count({ where: { seasonId: season.id } }),
+          prisma.match.count({ where: { seasonId: season.id, endTime: { not: null } } }),
           prisma.player.count({ where: { team: { seasonId: season.id } } }),
         ]);
 
@@ -41,6 +44,7 @@ export async function GET() {
           archiveNote: season.archiveNote,
           teamCount,
           matchCount,
+          playedCount,
           playerCount,
           rounds: matchCount ? Math.max(...(await prisma.match.findMany({
             where: { seasonId: season.id }, select: { round: true },

@@ -71,10 +71,15 @@ export default function Standings() {
     return () => { cancelled = true; };
   }, [season]);
 
+  // Nejstarší archivní tabulky legy neobsahují (hlásí to hasLegs) — sloupce LZ, LP
+  // a rozdíl by v nich byly samé nuly, což vypadá jako výsledek, ne jako chybějící údaj.
+  const noLegs = standings.length > 0 && standings.every((t: any) => t.hasLegs === false);
+
   // Do sezóny 2016/17 se hrálo 3/0 — sloupce VP a PP by byly samé nuly.
   // Forma se počítá jen ze živých zápasů, archivní tabulky ji nemají.
   const columns = COLUMNS.filter(
     (c) => !(season?.pointsSystem === '3/0' && (c.label === 'VP' || c.label === 'PP'))
+         && !(noLegs && (c.label === 'LZ' || c.label === 'LP'))
   );
   const showForm = standings.some((t) => t.form.length > 0);
   // Před prvním kolem je "pořadí" jen abecední seznam — medailové pruhy ani čísla
@@ -223,12 +228,13 @@ export default function Standings() {
 
                     <TableCell
                       className={`tnum text-center font-medium ${
-                        team.legDifference > 0 ? 'text-success'
+                        noLegs ? 'text-slate-400'
+                        : team.legDifference > 0 ? 'text-success'
                         : team.legDifference < 0 ? 'text-destructive'
                         : 'text-slate-500'
                       }`}
                     >
-                      {team.legDifference > 0 ? '+' : ''}{team.legDifference}
+                      {noLegs ? '–' : `${team.legDifference > 0 ? '+' : ''}${team.legDifference}`}
                     </TableCell>
 
                     <TableCell className="tnum text-center text-base font-bold text-slate-900">
@@ -243,8 +249,11 @@ export default function Standings() {
           <p className="mt-2 text-xs text-muted-foreground">
             Z – zápasy · V/P – výhry a prohry
             {season?.pointsSystem !== '3/0' && ' · VP/PP – po rozstřelu'}
-            {' '}· LZ/LP – legy získané a ztracené · ± – rozdíl legů · B – body.
-            {' '}Pořadí: body → vzájemný zápas → rozdíl legů.{' '}
+            {!noLegs && ' · LZ/LP – legy získané a ztracené · ± – rozdíl legů'}
+            {' '}· B – body.
+            {noLegs
+              ? ' Legy se v tomto ročníku do tabulky nepočítaly. Pořadí: body → vzájemný zápas.'
+              : ' Pořadí: body → vzájemný zápas → rozdíl legů.'}{' '}
             <Link href="/rules" className="underline hover:text-primary">Pravidla</Link>
           </p>
         </>

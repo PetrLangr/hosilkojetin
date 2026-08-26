@@ -352,19 +352,16 @@ export default async function Homepage() {
         {hasUpcoming && (
         <Panel title="Nejbližší zápasy" icon={<Calendar className="h-4 w-4 text-primary" />} href="/schedule">
             <ul className="divide-y divide-border">
+              {/* Detail nezadaného zápasu je jen pro kapitány, návštěvníka by odkaz
+                  poslal na přihlášení — celý tenhle panel jsou zápasy před termínem. */}
               {data.upcomingMatches.map((m: any) => (
-                <li key={m.id}>
-                  <Link
-                    href={`/match/${m.id}`}
-                    className="flex items-center gap-2 px-3 py-2 hover:bg-rose-50/50"
-                  >
-                    <span className="tnum w-10 shrink-0 text-[11px] text-muted-foreground">
-                      {m.date ? dayMonth(m.date) : m.round ? `${m.round}. k.` : ''}
-                    </span>
-                    <span className="flex-1 truncate text-xs text-slate-700">{m.homeTeam}</span>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">vs</span>
-                    <span className="flex-1 truncate text-right text-xs text-slate-700">{m.awayTeam}</span>
-                  </Link>
+                <li key={m.id} className="flex items-center gap-2 px-3 py-2">
+                  <span className="tnum w-10 shrink-0 text-[11px] text-muted-foreground">
+                    {m.date ? dayMonth(m.date) : m.round ? `${m.round}. k.` : ''}
+                  </span>
+                  <span className="flex-1 truncate text-xs text-slate-700">{m.homeTeam}</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">vs</span>
+                  <span className="flex-1 truncate text-right text-xs text-slate-700">{m.awayTeam}</span>
                 </li>
               ))}
             </ul>
