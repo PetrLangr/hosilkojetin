@@ -60,11 +60,13 @@ export function getTeamLogo(teamName: string): string {
     'DC Stop Chropyně': '/logos/dcstopchropyne_logo.png',
     'Dark Horse Moštárna': '/logos/darkhorsemostarna_logo.png',
     'Draci Počenice': '/logos/dracipocenice_logo.png',
+    'Heffron Prostějov': '/logos/heffronprostejov_logo.jpg',
     'Hospoda Kanada': '/logos/hospodakanada_logo.png',
     'Kohouti Ludslavice': '/logos/kohoutiludslavice_logo.png',
     'Rychlí šneci Vlkoš': '/logos/rychlisnecivlkos_logo.png',
     'Stoned Lobo Ponies': '/logos/stonedloboponies_logo.png',
-    'ŠK Pivní psi Chropyně': '/logos/skpivnipsichropyne_logo.png'
+    'ŠK Pivní psi Chropyně': '/logos/skpivnipsichropyne_logo.png',
+    'Záhořani Prostějov': '/logos/zahoraniprostejov_logo.jpg'
   };
 
   return logoMapping[teamName] || '/logos/default-team.png';
@@ -84,7 +86,9 @@ export function getTeamGradient(teamName: string): string {
     'DC Kraken Dřínov': 'from-teal-500 to-teal-600', // Need to see this logo
     'AK Kojetín': 'from-indigo-500 to-indigo-600', // Need to see this logo
     'Draci Počenice': 'from-emerald-500 to-emerald-600', // Need to see this logo
-    'Dark Horse Moštárna': 'from-amber-500 via-slate-800 to-amber-600' // Golden + black horse
+    'Dark Horse Moštárna': 'from-amber-500 via-slate-800 to-amber-600', // Golden + black horse
+    'Heffron Prostějov': 'from-green-800 via-amber-500 to-green-900', // Dark green banner + gold rim
+    'Záhořani Prostějov': 'from-slate-600 to-slate-700' // Navy shield + crossed darts
   };
   
   return teamGradients[teamName] || 'from-slate-400 to-slate-500';
@@ -104,7 +108,9 @@ export function getTeamBackgroundGradient(teamName: string): string {
     'DC Kraken Dřínov': 'from-teal-50 to-teal-100',
     'AK Kojetín': 'from-indigo-50 to-indigo-100',
     'Draci Počenice': 'from-emerald-50 to-emerald-100',
-    'Dark Horse Moštárna': 'from-amber-50 via-slate-50 to-amber-100'
+    'Dark Horse Moštárna': 'from-amber-50 via-slate-50 to-amber-100',
+    'Heffron Prostějov': 'from-green-50 via-amber-50 to-green-100',
+    'Záhořani Prostějov': 'from-slate-50 to-slate-100'
   };
   
   return backgroundGradients[teamName] || 'from-slate-50 to-slate-100';

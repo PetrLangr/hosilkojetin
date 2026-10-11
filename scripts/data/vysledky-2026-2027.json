@@ -1,0 +1,50 @@
+{
+  "season": "2026/2027",
+  "rounds": [
+    {
+      "round": 1,
+      "date": "2026-09-19",
+      "matches": [
+        { "home": "Záhořani Prostějov", "away": "Draci Počenice", "homeWins": 11, "awayWins": 5, "homeLegs": 26, "awayLegs": 14 },
+        { "home": "DC Stop Chropyně", "away": "Dark Horse Moštárna", "homeWins": 5, "awayWins": 11, "homeLegs": 14, "awayLegs": 24 },
+        { "home": "Stoned Lobo Ponies", "away": "Cech křivé šipky", "homeWins": 11, "awayWins": 5, "homeLegs": 25, "awayLegs": 16 },
+        { "home": "Kohouti Ludslavice", "away": "Hospoda Kanada", "homeWins": 6, "awayWins": 10, "homeLegs": 18, "awayLegs": 21 },
+        { "home": "Bochořský koblihy", "away": "DC Kraken Dřínov", "homeWins": 3, "awayWins": 13, "homeLegs": 11, "awayLegs": 27 },
+        { "home": "Rychlí šneci Vlkoš", "away": "Heffron Prostějov", "homeWins": 3, "awayWins": 13, "homeLegs": 8, "awayLegs": 27 }
+      ]
+    },
+    {
+      "round": 2,
+      "date": "2026-09-26",
+      "matches": [
+        { "home": "Dark Horse Moštárna", "away": "Rychlí šneci Vlkoš", "homeWins": 15, "awayWins": 1, "homeLegs": 30, "awayLegs": 5, "date": "2026-09-27" },
+        { "home": "Cech křivé šipky", "away": "Kohouti Ludslavice", "homeWins": 14, "awayWins": 2, "homeLegs": 28, "awayLegs": 12 },
+        { "home": "Hospoda Kanada", "away": "DC Stop Chropyně", "homeWins": 9, "awayWins": 7, "homeLegs": 20, "awayLegs": 19 },
+        { "home": "DC Kraken Dřínov", "away": "Stoned Lobo Ponies", "homeWins": 9, "awayWins": 7, "homeLegs": 20, "awayLegs": 16 },
+        { "home": "Heffron Prostějov", "away": "Draci Počenice", "homeWins": 15, "awayWins": 1, "homeLegs": 30, "awayLegs": 2 },
+        { "home": "Záhořani Prostějov", "away": "Bochořský koblihy", "homeWins": 14, "awayWins": 2, "homeLegs": 30, "awayLegs": 7 }
+      ]
+    },
+    {
+      "round": 3,
+      "date": "2026-10-03",
+      "matches": [
+        { "home": "Stoned Lobo Ponies", "away": "Záhořani Prostějov", "homeWins": 9, "awayWins": 7, "homeLegs": 21, "awayLegs": 18 },
+        { "home": "DC Stop Chropyně", "away": "Kohouti Ludslavice", "homeWins": 11, "awayWins": 5, "homeLegs": 25, "awayLegs": 13 },
+        { "home": "Draci Počenice", "away": "Dark Horse Moštárna", "homeWins": 3, "awayWins": 13, "homeLegs": 9, "awayLegs": 30 },
+        { "home": "Rychlí šneci Vlkoš", "away": "Hospoda Kanada", "homeWins": 2, "awayWins": 14, "homeLegs": 12, "awayLegs": 28, "date": "2026-10-02" },
+        { "home": "DC Kraken Dřínov", "away": "Cech křivé šipky", "homeWins": 3, "awayWins": 13, "homeLegs": 12, "awayLegs": 28 },
+        { "home": "Bochořský koblihy", "away": "Heffron Prostějov", "homeWins": 6, "awayWins": 10, "homeLegs": 18, "awayLegs": 23 }
+      ]
+    },
+    {
+      "round": 4,
+      "date": "2026-10-10",
+      "matches": [
+        { "home": "Heffron Prostějov", "away": "Stoned Lobo Ponies", "homeWins": 7, "awayWins": 9, "homeLegs": 16, "awayLegs": 21 },
+        { "home": "Dark Horse Moštárna", "away": "Bochořský koblihy", "homeWins": 14, "awayWins": 2, "homeLegs": 29, "awayLegs": 6 },
+        { "home": "Záhořani Prostějov", "away": "DC Kraken Dřínov", "homeWins": 13, "awayWins": 3, "homeLegs": 27, "awayLegs": 12 }
+      ]
+    }
+  ]
+}
