@@ -139,28 +139,6 @@ export async function Footer() {
           </div>
         </div>
 
-        {/* Sponzor — logo má vlastní bílý ovál, na vínovém pozadí funguje samo o sobě
-            a další podklad pod něj by dělal rámeček v rámečku */}
-        <div className="border-t border-white/20 py-6">
-          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-6">
-            <span className="text-xs font-bold uppercase tracking-widest text-white/70">
-              Sponzor ligy
-            </span>
-            <Link
-              href="https://www.pizzamarkyz.cz"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition-opacity hover:opacity-80"
-            >
-              <img
-                src="/sponzor-pizza-markyz.png"
-                alt="Pizza Markýz"
-                className="h-16 w-auto sm:h-20"
-              />
-            </Link>
-          </div>
-        </div>
-
         {/* Bottom Bar */}
         <div className="border-t border-white/20 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">

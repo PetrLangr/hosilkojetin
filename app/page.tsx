@@ -1,8 +1,9 @@
-import { Users, Calendar, Trophy, MessageSquare, Pin, ClipboardList, ArrowRight } from "lucide-react";
+import { Calendar, Trophy, MessageSquare, Pin, ClipboardList, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TeamLogo } from "@/components/team-logo";
 import { PWAQRCode } from "@/components/pwa-qr-code";
+import { PartnersMarquee } from "@/components/partners-marquee";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -470,29 +471,7 @@ export default async function Homepage() {
         </div>
       </div>
 
-      {/* Statistiky hráčů zatím nejsou dopočítané pro celou sezónu; odkaz vede
-          na skutečný žebříček místo dřívějšího bloku s vymyšlenými jmény */}
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted px-4 py-3">
-        <div>
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-            <Users className="h-4 w-4 text-accent" />
-            Statistiky hráčů
-          </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {/* /players je pro nepřihlášené zatím rozpracovaná stránka — ať odkaz
-                neslibuje víc, než návštěvník uvidí */}
-            {session
-              ? 'Žebříček podle HŠL indexu, vysoké náhozy (95+, 133+, 170+) a rychlá zavření.'
-              : 'Připravujeme žebříček podle HŠL indexu, vysoké náhozy a rychlá zavření.'}
-          </p>
-        </div>
-        <Button asChild size="sm" variant="outline" className="h-8 rounded-md">
-          <Link href="/players">
-            {session ? 'Zobrazit hráče' : 'Co chystáme'}
-            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-          </Link>
-        </Button>
-      </section>
+      <PartnersMarquee />
     </div>
   );
 }

@@ -26,6 +26,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-primary/20 bg-gradient-to-r from-primary to-[#9F1239] shadow-lg">
       <div className="container mx-auto px-4 lg:px-6 h-14 flex items-center justify-between">
+        <div className="flex items-center">
         {/* Oficiální logo je černo-zlaté a na vínové liště by zaniklo, proto sedí
             na bílé destičce. Nápis HŠL vedle zůstává — v logu je text tak malý,
             že se v liště nedá přečíst. */}
@@ -37,6 +38,29 @@ export function Header() {
             HŠL
           </span>
         </Link>
+
+        {/* Partner ligy — logo má vlastní bílý ovál, na vínové liště drží samo,
+            další podklad pod něj by dělal rámeček v rámečku. Popisek mizí pod md,
+            aby se na mobilu lišta nerozbila. */}
+        <div className="flex items-center gap-2 ml-3 pl-3 border-l border-white/20">
+          <span className="hidden md:inline text-[10px] font-bold uppercase tracking-widest text-white/60">
+            Partner ligy
+          </span>
+          <Link
+            href="https://www.pizzamarkyz.cz"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Pizza Markýz — partner ligy"
+            className="transition-opacity hover:opacity-80"
+          >
+            <img
+              src="/sponzor-pizza-markyz.png"
+              alt="Pizza Markýz"
+              className="h-7 w-auto sm:h-8"
+            />
+          </Link>
+        </div>
+        </div>
 
         {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center space-x-5">

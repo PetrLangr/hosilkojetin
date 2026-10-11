@@ -102,7 +102,36 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt"
-  }
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  /*
+   * Vlastní názvy cookies pro vývoj.
+   *
+   * Cookies se neřídí portem — pro prohlížeč je "localhost:3010" a "localhost:3030"
+   * tentýž host. Každá Next appka s NextAuth v4 si přitom ukládá session pod stejným
+   * jménem "next-auth.session-token", takže si na localhostu navzájem přepisují
+   * přihlášení. Cizí token je šifrovaný jiným NEXTAUTH_SECRET a tahle appka ho
+   * neumí rozšifrovat — odtud JWT_SESSION_ERROR "decryption operation failed".
+   *
+   * V produkci žádná kolize nehrozí (vlastní doména) a přejmenování by odhlásilo
+   * všechny přihlášené, proto se to zapíná jen mimo produkci.
+   */
+  ...(process.env.NODE_ENV !== "production" && {
+    cookies: {
+      sessionToken: {
+        name: "hsl.session-token",
+        options: { httpOnly: true, sameSite: "lax", path: "/", secure: false },
+      },
+      callbackUrl: {
+        name: "hsl.callback-url",
+        options: { sameSite: "lax", path: "/", secure: false },
+      },
+      csrfToken: {
+        name: "hsl.csrf-token",
+        options: { httpOnly: true, sameSite: "lax", path: "/", secure: false },
+      },
+    },
+  }),
 };
 
 export default authOptions;

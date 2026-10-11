@@ -124,3 +124,31 @@ body {
 .dart-ring {
   @apply w-32 h-32 rounded-full border-4 border-primary/20 absolute;
 }
+
+/* Pás partnerů: dvě identické kopie seznamu vedle sebe, posun o -50 % je proto
+   nekonečná smyčka bez skoku. Trvání se řídí proměnnou, ať se dá ladit na místě. */
+@keyframes hsl-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.marquee {
+  /* Okraje se rozplývají do pozadí, aby loga nevyjížděla ostrou hranou.
+     Na mobilu je náběh kratší — 4 rem z každé strany by ukrojily třetinu šířky. */
+  --marquee-fade: 1.5rem;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--marquee-fade), #000 calc(100% - var(--marquee-fade)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--marquee-fade), #000 calc(100% - var(--marquee-fade)), transparent);
+}
+
+@media (min-width: 640px) {
+  .marquee { --marquee-fade: 4rem; }
+}
+
+.marquee-track {
+  animation: hsl-marquee var(--marquee-duration, 45s) linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+}
