@@ -130,8 +130,9 @@ export async function GET(
         },
         published: true
       },
+      // Jen veřejná pole autora — celý záznam User obsahoval login a hash hesla.
       include: {
-        author: true
+        author: { select: { name: true, role: true } }
       },
       orderBy: { createdAt: 'desc' },
       take: 10

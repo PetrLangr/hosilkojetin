@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET() {
@@ -61,6 +62,9 @@ function estimateReadTime(content: string): string {
 
 // POST method for creating new posts (admin only)
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const body = await request.json();
     const { title, excerpt, content, imageUrl, type, pinned } = body;
@@ -73,19 +77,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For now, we'll use the admin user we created earlier
-    // In a real app, you'd get this from the session
-    const adminUser = await prisma.user.findFirst({
-      where: { role: 'admin' }
-    });
-
-    if (!adminUser) {
-      return NextResponse.json(
-        { error: 'Admin user not found' }, 
-        { status: 404 }
-      );
-    }
-
     const post = await prisma.post.create({
       data: {
         title: title.trim(),
@@ -95,7 +86,8 @@ export async function POST(request: NextRequest) {
         type: type || 'news',
         pinned: pinned || false,
         published: true,
-        authorId: adminUser.id
+        // Autor je přihlášený admin (dřív první admin nalezený v DB).
+        authorId: auth.session.user.id
       },
       include: {
         author: {

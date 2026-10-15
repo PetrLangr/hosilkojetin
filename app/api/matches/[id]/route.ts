@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { canEditMatch, requireUser } from '@/lib/api-auth';
 import { calculateHSLIndex, calculateUSOIndex } from '@/lib/bpi';
 
 export async function GET(
@@ -41,8 +42,30 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
+
+  const match = await prisma.match.findUnique({
+    where: { id },
+    select: { homeTeamId: true, awayTeamId: true },
+  });
+  if (!match) {
+    return NextResponse.json({ error: 'Zápas nenalezen' }, { status: 404 });
+  }
+  if (!canEditMatch(auth.session, match)) {
+    return NextResponse.json({ error: 'Můžete zapisovat jen zápasy svého týmu' }, { status: 403 });
+  }
+
   try {
     const { gameResults, matchResult } = await request.json();
+
+    // Stav určuje server, ne klient: výsledek od kohokoli kromě admina jde
+    // ke schválení. Dřív stačilo poslat status "completed" a schválení se obešlo.
+    const status = auth.session.user.role === 'admin'
+      ? (matchResult.status || 'completed')
+      : 'pending_approval';
+    matchResult.status = status;
 
     // Update match with results and status
     // When detailed results are entered, mark as NOT a quick result
@@ -50,8 +73,8 @@ export async function PUT(
       where: { id },
       data: {
         result: matchResult,
-        status: matchResult.status || 'completed',
-        endTime: matchResult.status === 'completed' ? new Date() : null,
+        status,
+        endTime: status === 'completed' ? new Date() : null,
         isQuickResult: false // Detailed entry, so this is not a quick result
       }
     });
