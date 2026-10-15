@@ -1,13 +1,18 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Shield, Users, Target, Edit, Home, Calendar } from "lucide-react";
+import { redirect, usePathname } from "next/navigation";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Shield } from "lucide-react";
+
+const adminNavItems = [
+  { href: "/admin", label: "Přehled" },
+  { href: "/admin/matches", label: "Zápasy" },
+  { href: "/admin/teams", label: "Týmy" },
+  { href: "/admin/players", label: "Hráči" },
+  // Seznam příspěvků v administraci zatím není — správa běží přes veřejné /posts.
+  { href: "/admin/posts/new", label: "Nový příspěvek" },
+];
 
 export default function AdminLayout({
   children,
@@ -19,11 +24,9 @@ export default function AdminLayout({
 
   if (status === "loading") {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-center">
-          <Shield className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p>Načítám admin panel...</p>
-        </div>
+      <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <Shield className="h-4 w-4 animate-pulse text-primary" />
+        Načítám administraci…
       </div>
     );
   }
@@ -32,79 +35,42 @@ export default function AdminLayout({
     redirect("/");
   }
 
-  const adminNavItems = [
-    { href: "/admin", label: "Přehled", icon: Home },
-    { href: "/admin/teams", label: "Týmy", icon: Users },
-    { href: "/admin/players", label: "Hráči", icon: Target },
-    { href: "/admin/matches", label: "Zápasy", icon: Calendar },
-    { href: "/admin/posts", label: "Příspěvky", icon: Edit },
-  ];
-
   return (
-    <div className="space-y-8">
-      {/* Admin Header */}
-      <div className="text-center py-12 bg-gradient-to-br from-primary/5 to-accent/5 rounded-3xl border border-gray-100">
-        <Badge className="bg-primary text-white px-4 py-2 text-sm font-semibold mb-4">
-          <Shield className="h-3 w-3 mr-1" />
-          ADMINISTRÁTORSKÝ PANEL
-        </Badge>
-        <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 leading-tight">
-          SPRÁVA <span className="text-primary">HŠL</span>
-        </h1>
-        <p className="text-xl text-slate-600 font-medium">
-          Kompletní správa ligy, týmů a obsahu
-        </p>
+    <div>
+      {/* Stejný řádek jako PageHeader, jen bez spodní linky — tu tvoří lišta záložek. */}
+      <div className="flex items-baseline gap-2.5 pb-2">
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Správa ligy</h1>
+        <span className="truncate text-sm text-muted-foreground">
+          {session.user.name ?? session.user.email}
+        </span>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Admin Sidebar */}
-        <div className="lg:w-1/4">
-          <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="size-10 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center">
-                  <Shield className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <div className="font-black text-slate-900">Admin Menu</div>
-                  <div className="text-sm text-slate-600">{session.user.name}</div>
-                </div>
-              </div>
+      {/* Záložky místo bočního panelu — sidebar ve čtvrtině šířky ubíral
+          tabulkám v podstránkách místo a nesl jen pět odkazů. */}
+      <nav className="mb-5 flex gap-1 overflow-x-auto border-b border-border">
+        {adminNavItems.map((item) => {
+          const isActive = item.href === "/admin"
+            ? pathname === "/admin"
+            : pathname.startsWith(item.href);
 
-              <nav className="space-y-2">
-                {adminNavItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.href || 
-                    (item.href !== "/admin" && pathname.startsWith(item.href));
-                  
-                  return (
-                    <Button
-                      key={item.href}
-                      asChild
-                      variant={isActive ? "default" : "ghost"}
-                      className={`w-full justify-start rounded-xl font-semibold ${
-                        isActive 
-                          ? "bg-primary text-white hover:bg-[#9F1239]" 
-                          : "text-slate-700 hover:bg-primary hover:text-white"
-                      }`}
-                    >
-                      <Link href={item.href}>
-                        <Icon className="h-4 w-4 mr-2" />
-                        {item.label}
-                      </Link>
-                    </Button>
-                  );
-                })}
-              </nav>
-            </div>
-          </Card>
-        </div>
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive
+                  ? "border-primary text-primary"
+                  : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
 
-        {/* Main Content */}
-        <div className="lg:w-3/4">
-          {children}
-        </div>
-      </div>
+      {children}
     </div>
   );
 }

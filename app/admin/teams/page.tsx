@@ -1,286 +1,212 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Users, Plus, Edit, Trash2, MapPin, Trophy } from "lucide-react";
-import { TeamLogo } from "@/components/team-logo";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getTeamLogo } from "@/lib/team-logos";
+import {
+  AdminToolbar, EmptyRow, ErrorBanner, Field, LoadingRow, RowAction, TableFrame, TeamMark,
+} from "@/components/admin/admin-ui";
+
+type Team = {
+  id: string;
+  name: string;
+  shortName: string;
+  city: string | null;
+  logoUrl: string | null;
+  captain: { name: string } | null;
+  _count?: { players: number };
+  players?: unknown[];
+};
+
+const EMPTY_FORM = { name: "", shortName: "", city: "", logoUrl: "" };
 
 export default function AdminTeams() {
-  const [teams, setTeams] = useState<any[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<any>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    shortName: "",
-    city: "",
-    logoUrl: ""
-  });
-
-  useEffect(() => {
-    fetchTeams();
-  }, []);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const fetchTeams = async () => {
     try {
       const response = await fetch('/api/teams');
-      if (response.ok) {
-        const teamsData = await response.json();
-        setTeams(teamsData);
-      }
-    } catch (error) {
-      console.error('Error fetching teams:', error);
+      if (!response.ok) throw new Error();
+      setTeams(await response.json());
+    } catch {
+      setError('Týmy se nepodařilo načíst.');
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => { fetchTeams(); }, []);
+
+  const openDialog = (team: Team | null) => {
+    setEditingTeam(team);
+    setFormData(team
+      ? { name: team.name, shortName: team.shortName, city: team.city || "", logoUrl: team.logoUrl || "" }
+      : EMPTY_FORM);
+    setFormError("");
+    setDialogOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setSaving(true);
+    setFormError("");
+
     try {
-      const url = editingTeam ? `/api/teams/${editingTeam.id}` : '/api/teams';
-      const method = editingTeam ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
+      const response = await fetch(editingTeam ? `/api/teams/${editingTeam.id}` : '/api/teams', {
+        method: editingTeam ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-
-      if (response.ok) {
-        await fetchTeams();
-        setDialogOpen(false);
-        setEditingTeam(null);
-        setFormData({ name: "", shortName: "", city: "", logoUrl: "" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Tým se nepodařilo uložit.');
       }
-    } catch (error) {
-      console.error('Error saving team:', error);
+      await fetchTeams();
+      setDialogOpen(false);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Tým se nepodařilo uložit.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleEdit = (team: any) => {
-    setEditingTeam(team);
-    setFormData({
-      name: team.name,
-      shortName: team.shortName,
-      city: team.city || "",
-      logoUrl: team.logoUrl || ""
-    });
-    setDialogOpen(true);
-  };
+  const handleDelete = async (team: Team) => {
+    if (!confirm(`Opravdu smazat tým ${team.name}?`)) return;
+    setError("");
 
-  const handleDelete = async (teamId: string) => {
-    if (!confirm('Opravdu chcete smazat tento tým?')) return;
-    
     try {
-      const response = await fetch(`/api/teams/${teamId}`, {
-        method: 'DELETE'
-      });
-      
-      if (response.ok) {
-        await fetchTeams();
+      const response = await fetch(`/api/teams/${team.id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        // API vrací srozumitelný důvod (např. tým má hráče) — dřív zapadl v konzoli.
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Tým se nepodařilo smazat.');
       }
-    } catch (error) {
-      console.error('Error deleting team:', error);
+      await fetchTeams();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Tým se nepodařilo smazat.');
     }
   };
 
-  const openNewTeamDialog = () => {
-    setEditingTeam(null);
-    setFormData({ name: "", shortName: "", city: "", logoUrl: "" });
-    setDialogOpen(true);
-  };
+  const set = (key: keyof typeof EMPTY_FORM) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [key]: e.target.value });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 mb-2">SPRÁVA TÝMŮ</h2>
-          <p className="text-slate-600 font-medium">Přidávání, úprava a mazání týmů</p>
-        </div>
-        
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openNewTeamDialog} className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold">
-              <Plus className="h-4 w-4 mr-2" />
-              Přidat tým
-            </Button>
-          </DialogTrigger>
-          
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                {editingTeam ? 'Upravit tým' : 'Nový tým'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingTeam ? 'Upravte informace o týmu' : 'Vyplňte údaje nového týmu'}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Název týmu *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Název týmu"
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="shortName">Zkratka *</Label>
-                <Input
-                  id="shortName"
-                  value={formData.shortName}
-                  onChange={(e) => setFormData({ ...formData, shortName: e.target.value })}
-                  placeholder="Zkratka (3 znaky)"
-                  maxLength={5}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="city">Město</Label>
-                <Input
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="Město"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="logoUrl">URL loga</Label>
-                <Input
-                  id="logoUrl"
-                  value={formData.logoUrl}
-                  onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                  placeholder="/logos/team.png"
-                />
-              </div>
-              
-              <div className="flex gap-2">
-                <Button type="submit" className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold flex-1">
-                  {editingTeam ? 'Uložit změny' : 'Vytvořit tým'}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl">
-                  Zrušit
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+    <div>
+      <AdminToolbar title="Týmy" meta={!loading && teams.length}>
+        <Button size="sm" onClick={() => openDialog(null)} className="h-8 rounded-md font-semibold">
+          <Plus className="mr-1 h-4 w-4" />
+          Přidat tým
+        </Button>
+      </AdminToolbar>
 
-      {/* Teams Table */}
-      <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Všechny týmy ({teams.length})
-          </CardTitle>
-          <CardDescription>
-            Kompletní seznam týmů v aktuální sezóně
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-8">
-              <Users className="h-6 w-6 animate-spin mx-auto mb-2" />
-              <p className="text-muted-foreground">Načítám týmy...</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Logo</TableHead>
-                  <TableHead>Název týmu</TableHead>
-                  <TableHead>Zkratka</TableHead>
-                  <TableHead>Město</TableHead>
-                  <TableHead>Hráči</TableHead>
-                  <TableHead>Kapitán</TableHead>
-                  <TableHead className="text-right">Akce</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {teams.map((team) => (
-                  <TableRow key={team.id} className="hover:bg-slate-50">
+      {error && <ErrorBanner message={error} onClose={() => setError('')} />}
+
+      <TableFrame>
+        {loading ? (
+          <LoadingRow>Načítám týmy…</LoadingRow>
+        ) : teams.length === 0 ? (
+          <EmptyRow>V aktivní sezóně zatím nejsou žádné týmy.</EmptyRow>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border bg-muted hover:bg-muted">
+                <TableHead>Tým</TableHead>
+                <TableHead className="w-20">Zkratka</TableHead>
+                <TableHead className="hidden md:table-cell">Město</TableHead>
+                <TableHead className="hidden lg:table-cell">Kapitán</TableHead>
+                <TableHead className="w-16 text-center">Hráči</TableHead>
+                <TableHead className="w-20"><span className="sr-only">Akce</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {teams.map((team) => {
+                const playerCount = team._count?.players ?? team.players?.length ?? 0;
+                return (
+                  <TableRow key={team.id} className="border-border hover:bg-rose-50/40">
                     <TableCell>
-                      <div className="size-10 rounded-lg bg-white shadow-sm border border-slate-200 p-1">
-                        <TeamLogo 
-                          teamName={team.name}
-                          className="w-full h-full object-contain"
-                          fallbackText={team.shortName}
-                        />
+                      <div className="flex items-center gap-2 whitespace-nowrap">
+                        <TeamMark name={team.name} shortName={team.shortName} logoUrl={getTeamLogo(team.name)} />
+                        <Link href={`/team/${team.id}`} className="font-medium text-slate-900 hover:text-primary">
+                          {team.name}
+                        </Link>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="font-semibold text-slate-900">{team.name}</div>
+                    <TableCell className="font-mono text-xs text-slate-600">{team.shortName}</TableCell>
+                    <TableCell className="hidden text-slate-600 md:table-cell">
+                      {team.city || <span className="text-slate-300">–</span>}
                     </TableCell>
-                    <TableCell>
-                      <Badge className="bg-primary/10 text-primary font-bold">
-                        {team.shortName}
-                      </Badge>
+                    <TableCell className="hidden text-slate-700 lg:table-cell">
+                      {team.captain?.name || <span className="text-xs text-amber-700">není určen</span>}
                     </TableCell>
+                    <TableCell className="text-center font-medium text-slate-900 tnum">{playerCount}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1 text-slate-600">
-                        <MapPin className="h-3 w-3" />
-                        {team.city || 'Neuvedeno'}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-semibold">
-                        {team.players?.length || 0} hráčů
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {team.captain ? (
-                        <div className="flex items-center gap-1">
-                          <Trophy className="h-3 w-3 text-primary" />
-                          <span className="text-sm font-medium">{team.captain.name}</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-slate-400">Není nastaven</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(team)}
-                          className="rounded-lg border-accent text-accent hover:bg-accent hover:text-white"
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDelete(team.id)}
-                          className="rounded-lg border-red-300 text-red-600 hover:bg-red-600 hover:text-white"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                      <div className="flex justify-end gap-0.5">
+                        <RowAction label={`Upravit ${team.name}`} onClick={() => openDialog(team)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </RowAction>
+                        <RowAction label={`Smazat ${team.name}`} tone="danger" onClick={() => handleDelete(team)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </RowAction>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </TableFrame>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="gap-0 p-0 sm:max-w-md">
+          <DialogHeader className="border-b border-border px-5 py-3.5">
+            <DialogTitle className="text-base">{editingTeam ? `Upravit tým` : 'Nový tým'}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-3.5 px-5 py-4">
+              <Field label="Název týmu *" htmlFor="name">
+                <Input id="name" value={formData.name} onChange={set('name')} required autoFocus />
+              </Field>
+              <div className="grid grid-cols-[6rem_1fr] gap-3">
+                <Field label="Zkratka *" htmlFor="shortName">
+                  <Input id="shortName" value={formData.shortName} onChange={set('shortName')} maxLength={5} required className="font-mono uppercase" />
+                </Field>
+                <Field label="Město" htmlFor="city">
+                  <Input id="city" value={formData.city} onChange={set('city')} />
+                </Field>
+              </div>
+              <Field label="Logo" htmlFor="logoUrl" hint="Cesta k souboru ve /public, např. /logos/tym.png">
+                <Input id="logoUrl" value={formData.logoUrl} onChange={set('logoUrl')} placeholder="/logos/…" />
+              </Field>
+
+              {formError && <ErrorBanner message={formError} />}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-border bg-muted px-5 py-3">
+              <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)} className="h-8 rounded-md">
+                Zrušit
+              </Button>
+              <Button type="submit" size="sm" disabled={saving} className="h-8 rounded-md font-semibold">
+                {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {editingTeam ? 'Uložit' : 'Vytvořit tým'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
