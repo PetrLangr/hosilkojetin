@@ -2,10 +2,9 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { ArrowRight, Trophy } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import { ErrorBanner } from '@/components/admin/admin-ui'
 
 interface QuickResultEntryProps {
   matchId: string
@@ -138,173 +137,104 @@ export function QuickResultEntry({ matchId, homeTeam, awayTeam, onSubmit, onCanc
     awayPoints = 1
   }
 
+  const sides = [
+    { team: homeTeam, label: 'Domácí', wins: homeWins, setWins: setHomeWins, legs: homeLegs, setLegs: setHomeLegs, winsId: 'homeWins', legsId: 'homeLegs' },
+    { team: awayTeam, label: 'Hosté', wins: awayWins, setWins: setAwayWins, legs: awayLegs, setLegs: setAwayLegs, winsId: 'awayWins', legsId: 'awayLegs' },
+  ]
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-orange-500" />
-            Rychlé zadání výsledku
-          </CardTitle>
-          <CardDescription>
-            Zadejte pouze celkový počet výher a legů. Statistiky hráčů nebudou aktualizovány, ale tabulka ano.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Home Team */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">{homeTeam.name} (Domácí)</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="homeWins">Počet výher</Label>
-                  <Input
-                    id="homeWins"
-                    type="number"
-                    min="0"
-                    max="19"
-                    value={homeWins}
-                    onChange={(e) => setHomeWins(e.target.value)}
-                    placeholder="0"
-                    className="text-lg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="homeLegs">Počet legů</Label>
-                  <Input
-                    id="homeLegs"
-                    type="number"
-                    min="0"
-                    value={homeLegs}
-                    onChange={(e) => setHomeLegs(e.target.value)}
-                    placeholder="0"
-                    className="text-lg"
-                  />
-                </div>
+    <section className="mx-auto max-w-xl overflow-hidden rounded-lg border border-border bg-white">
+      <div className="flex h-10 items-center border-b border-border bg-muted px-3">
+        <h2 className="text-sm font-semibold text-slate-900">Rychlé zadání výsledku</h2>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-3 p-3">
+        {/* Dva řádky × dva sloupce: stejná mřížka jako výsledek v tabulce */}
+        <div className="overflow-hidden rounded-md border border-border">
+          <div className="grid grid-cols-[1fr_5rem_5rem] items-center gap-2 border-b border-border bg-slate-50 px-3 py-1.5">
+            <span className="label-muted">Tým</span>
+            <span className="label-muted text-center">Výhry</span>
+            <span className="label-muted text-center">Legy</span>
+          </div>
+          {sides.map((s) => (
+            <div
+              key={s.winsId}
+              className="grid grid-cols-[1fr_5rem_5rem] items-center gap-2 border-b border-border px-3 py-1.5 last:border-b-0"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-slate-900">{s.team.name}</div>
+                <div className="text-[11px] text-muted-foreground">{s.label}</div>
               </div>
+              <Input
+                id={s.winsId}
+                aria-label={`${s.team.shortName} – počet výher`}
+                type="number"
+                min="0"
+                max="19"
+                value={s.wins}
+                onChange={(e) => s.setWins(e.target.value)}
+                placeholder="0"
+                className="tnum h-9 text-center text-base font-semibold"
+              />
+              <Input
+                id={s.legsId}
+                aria-label={`${s.team.shortName} – počet legů`}
+                type="number"
+                min="0"
+                value={s.legs}
+                onChange={(e) => s.setLegs(e.target.value)}
+                placeholder="0"
+                className="tnum h-9 text-center text-base font-semibold"
+              />
             </div>
+          ))}
+        </div>
 
-            {/* Separator */}
-            <div className="flex items-center justify-center text-muted-foreground">
-              <div className="h-px bg-border flex-1" />
-              <span className="px-4 text-sm font-medium">VS</span>
-              <div className="h-px bg-border flex-1" />
-            </div>
+        {(totalHomeWins > 0 || totalAwayWins > 0) && (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md bg-muted px-3 py-2 text-sm">
+            <span>
+              <span className="label-muted mr-2">Hry</span>
+              <span className="tnum font-semibold text-slate-900">{totalHomeWins} : {totalAwayWins}</span>
+              <span className="label-muted ml-4 mr-2">Legy</span>
+              <span className="tnum font-semibold text-slate-900">{totalHomeLegs} : {totalAwayLegs}</span>
+            </span>
+            <span>
+              <span className="label-muted mr-2">Body</span>
+              <span className="tnum font-semibold text-primary">
+                {homeTeam.shortName} {homePoints} : {awayPoints} {awayTeam.shortName}
+              </span>
+            </span>
+          </div>
+        )}
 
-            {/* Away Team */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">{awayTeam.name} (Hosté)</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="awayWins">Počet výher</Label>
-                  <Input
-                    id="awayWins"
-                    type="number"
-                    min="0"
-                    max="19"
-                    value={awayWins}
-                    onChange={(e) => setAwayWins(e.target.value)}
-                    placeholder="0"
-                    className="text-lg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="awayLegs">Počet legů</Label>
-                  <Input
-                    id="awayLegs"
-                    type="number"
-                    min="0"
-                    value={awayLegs}
-                    onChange={(e) => setAwayLegs(e.target.value)}
-                    placeholder="0"
-                    className="text-lg"
-                  />
-                </div>
-              </div>
-            </div>
+        {error && <ErrorBanner message={error} />}
 
-            {/* Summary */}
-            {(totalHomeWins > 0 || totalAwayWins > 0) && (
-              <Card className="bg-muted/50">
-                <CardContent className="pt-6">
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm text-muted-foreground">Přehled výsledku:</h4>
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <div className="text-2xl font-bold">{totalHomeWins}</div>
-                        <div className="text-xs text-muted-foreground">{homeTeam.shortName} - Výhry</div>
-                      </div>
-                      <div className="flex items-center justify-center">
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold">{totalAwayWins}</div>
-                        <div className="text-xs text-muted-foreground">{awayTeam.shortName} - Výhry</div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <div className="text-xl font-semibold text-muted-foreground">{totalHomeLegs}</div>
-                        <div className="text-xs text-muted-foreground">Legy</div>
-                      </div>
-                      <div className="flex items-center justify-center">
-                        <div className="text-sm text-muted-foreground">:</div>
-                      </div>
-                      <div>
-                        <div className="text-xl font-semibold text-muted-foreground">{totalAwayLegs}</div>
-                        <div className="text-xs text-muted-foreground">Legy</div>
-                      </div>
-                    </div>
-                    <div className="pt-3 border-t">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Body do tabulky:</span>
-                        <span className="font-semibold">
-                          {homeTeam.shortName} {homePoints} : {awayPoints} {awayTeam.shortName}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+        <div className="flex gap-2">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSubmitting}
+              className="h-9 flex-1 font-semibold"
+            >
+              Zrušit
+            </Button>
+          )}
+          <Button
+            type="submit"
+            disabled={isSubmitting || !homeWins || !awayWins || !homeLegs || !awayLegs}
+            className="h-9 flex-1 bg-primary font-semibold text-white hover:bg-[#9F1239]"
+          >
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting ? 'Ukládám…' : 'Uložit výsledek'}
+          </Button>
+        </div>
 
-            {/* Error message */}
-            {error && (
-              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
-                {error}
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div className="flex gap-3 pt-4">
-              {onCancel && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onCancel}
-                  disabled={isSubmitting}
-                  className="flex-1"
-                >
-                  Zrušit
-                </Button>
-              )}
-              <Button
-                type="submit"
-                disabled={isSubmitting || !homeWins || !awayWins || !homeLegs || !awayLegs}
-                className="flex-1"
-              >
-                {isSubmitting ? 'Ukládání...' : 'Uložit výsledek'}
-              </Button>
-            </div>
-
-            {/* Warning about player stats */}
-            <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-md">
-              ⚠️ Upozornění: Při rychlém zadání nebudou aktualizovány statistiky jednotlivých hráčů (BPI, HSL Index, checkout atd.).
-              Pro plné statistiky použijte podrobné zadání výsledků.
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        <p className="text-[11px] text-muted-foreground">
+          Statistiky hráčů (BPI, náhozy, checkouty) se při rychlém zadání neaktualizují.
+        </p>
+      </form>
+    </section>
   )
 }

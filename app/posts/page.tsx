@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { Pin } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { prisma } from "@/lib/prisma";
 
@@ -27,8 +25,8 @@ async function getPosts() {
   }
 }
 
-const czDate = (d: Date) =>
-  new Date(d).toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
+const shortDate = (d: Date) =>
+  new Date(d).toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric", year: "numeric" });
 
 export default async function PostsPage() {
   const posts = await getPosts();
@@ -45,65 +43,45 @@ export default async function PostsPage() {
       />
 
       {posts.length === 0 ? (
-        <div className="rounded-lg border border-border bg-white px-4 py-10 text-center">
-          <p className="text-sm font-medium text-slate-700">Zatím žádné příspěvky.</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Oznámení o turnajích a novinkách přidávají kapitáni a administrátoři.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">Zatím žádné příspěvky.</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-white">
-          <ul className="divide-y divide-border">
-            {posts.map((post) => (
-              <li key={post.id}>
-                <Link href={`/posts/${post.id}`} className="group flex gap-3 p-3 hover:bg-rose-50/50">
-                  {/* Náhled jen když ho příspěvek opravdu má — dřív se sem dosazovala
-                      hero fotka, takže každý článek vypadal, že obrázek má */}
-                  {post.imageUrl && (
-                    <img src={post.imageUrl} alt="" className="size-16 shrink-0 rounded object-cover" />
-                  )}
+        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-white">
+          {posts.map((post) => (
+            <li key={post.id}>
+              <Link href={`/posts/${post.id}`} className="group flex gap-3 px-3 py-2.5 hover:bg-muted/60">
+                {/* Datum ve vlastním sloupci, ať se výpis čte jako zpravodajský feed */}
+                <span className="tnum w-20 shrink-0 pt-px text-xs text-muted-foreground">
+                  {shortDate(post.createdAt)}
+                </span>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                      <Badge
-                        variant="secondary"
-                        className={`px-1.5 py-0 text-[10px] font-semibold ${
-                          post.type === "announcement"
-                            ? "bg-primary/10 text-primary"
-                            : "bg-accent/10 text-accent"
-                        }`}
-                      >
-                        {post.type === "announcement" ? "OZNÁMENÍ" : "NOVINKA"}
-                      </Badge>
-                      {post.pinned && (
-                        <Badge
-                          variant="secondary"
-                          className="flex items-center gap-1 bg-amber-100 px-1.5 py-0 text-[10px] font-semibold text-amber-800"
-                        >
-                          <Pin className="h-2.5 w-2.5" />
-                          PŘIPNUTO
-                        </Badge>
-                      )}
-                      <span className="text-[11px] text-muted-foreground">
-                        {post.author.name ?? "Neznámý autor"} · {czDate(post.createdAt)}
-                      </span>
-                    </div>
-
-                    <h2 className="text-sm font-semibold leading-snug text-slate-900 group-hover:text-primary">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <h2 className="min-w-0 text-sm font-semibold leading-snug text-slate-900 group-hover:text-primary">
                       {post.title}
                     </h2>
-
-                    {post.excerpt && (
-                      <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                        {post.excerpt}
-                      </p>
+                    {post.pinned && (
+                      <span className="shrink-0 text-[11px] font-semibold text-primary">Připnuto</span>
                     )}
                   </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+                  {post.excerpt && (
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                      {post.excerpt}
+                    </p>
+                  )}
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {post.type === "announcement" ? "Oznámení" : "Novinka"} · {post.author.name ?? "Neznámý autor"}
+                  </p>
+                </div>
+
+                {/* Náhled jen když ho příspěvek opravdu má — dřív se sem dosazovala
+                    hero fotka, takže každý článek vypadal, že obrázek má */}
+                {post.imageUrl && (
+                  <img src={post.imageUrl} alt="" className="h-12 w-16 shrink-0 rounded object-cover" />
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

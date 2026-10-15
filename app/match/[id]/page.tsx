@@ -8,10 +8,9 @@ import { PinAccess } from '@/components/match/pin-access';
 import { PublicMatchView } from '@/components/match/public-match-view';
 import { ResultModeSelector } from '@/components/match/result-mode-selector';
 import { QuickResultEntry, QuickResultData } from '@/components/match/quick-result-entry';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, Lock, User, Target } from 'lucide-react';
+import { ArrowLeft, Loader2, Lock } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 
@@ -85,14 +84,7 @@ export default function MatchPage({ params }: MatchPageProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Target className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-slate-600">Načítám zápas...</p>
-        </div>
-      </div>
-    );
+    return <LoadingLine>Načítám zápas…</LoadingLine>;
   }
 
   if (!match) {
@@ -100,14 +92,7 @@ export default function MatchPage({ params }: MatchPageProps) {
   }
 
   if (status === "loading") {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Target className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-slate-600">Načítám session...</p>
-        </div>
-      </div>
-    );
+    return <LoadingLine>Ověřuji přihlášení…</LoadingLine>;
   }
 
   // Check access permissions for editing
@@ -133,23 +118,17 @@ export default function MatchPage({ params }: MatchPageProps) {
 
   // If match is completed and user cannot edit, show public read-only view
   if (isMatchCompleted && !canEditMatch) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <PublicMatchView match={match} />
-      </div>
-    );
+    return <PublicMatchView match={match} />;
   }
 
   // If match is completed, user can edit, show with upgrade option
   if (isMatchCompleted && canEditMatch && isQuickResult && entryMode === 'select') {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <PublicMatchView
-          match={match}
-          canEdit={true}
-          onUpgradeToDetailed={handleUpgradeToDetailed}
-        />
-      </div>
+      <PublicMatchView
+        match={match}
+        canEdit={true}
+        onUpgradeToDetailed={handleUpgradeToDetailed}
+      />
     );
   }
 
@@ -163,108 +142,39 @@ export default function MatchPage({ params }: MatchPageProps) {
     return <PinAccess match={match} onAccessGranted={() => setPinAccessGranted(true)} />;
   }
 
-  // Show access denied for non-team members  
+  // Show access denied for non-team members
   if (!isTeamMember && !isAdmin) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          <Card className="rounded-3xl bg-white border border-gray-100 card-shadow">
-            <CardContent className="p-12 text-center">
-              <div className="mb-8">
-                <div className="size-20 rounded-full bg-red-50 grid place-items-center mx-auto mb-6">
-                  <Lock className="h-10 w-10 text-red-600" />
-                </div>
-                
-                <Badge className="bg-red-600 text-white px-4 py-2 font-bold mb-4">
-                  PŘÍSTUP ODEPŘEN
-                </Badge>
-                
-                <h1 className="text-3xl font-black text-slate-900 mb-4">
-                  NEJSTE <span className="text-red-600">OPRÁVNĚNI</span>
-                </h1>
-                
-                <p className="text-lg text-slate-600 mb-6">
-                  Zadávání výsledků zápasů je dostupné pouze kapitánům zúčastněných týmů nebo administrátorům.
-                </p>
-                
-                <div className="bg-slate-50 rounded-2xl p-6 border border-gray-100 mb-8">
-                  <div className="flex items-center justify-center gap-4 mb-4">
-                    <div className="size-12 rounded-xl bg-white shadow-sm border border-slate-200 p-1">
-                      <img 
-                        src={`/logos/${match.homeTeam.name.toLowerCase().replace(/\s+/g, '')}_logo.png`}
-                        alt={match.homeTeam.name}
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.parentElement!.innerHTML = `<div class="w-full h-full bg-primary/10 rounded grid place-items-center text-primary font-bold text-xs">${match.homeTeam.shortName || 'H'}</div>`;
-                        }}
-                      />
-                    </div>
-                    <div className="text-xl font-black text-slate-400">VS</div>
-                    <div className="size-12 rounded-xl bg-white shadow-sm border border-slate-200 p-1">
-                      <img 
-                        src={`/logos/${match.awayTeam.name.toLowerCase().replace(/\s+/g, '')}_logo.png`}
-                        alt={match.awayTeam.name}
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.parentElement!.innerHTML = `<div class="w-full h-full bg-accent/10 rounded grid place-items-center text-accent font-bold text-xs">${match.awayTeam.shortName || 'A'}</div>`;
-                        }}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="text-center">
-                    <h3 className="font-black text-lg text-slate-900 mb-2">
-                      {match.homeTeam.name} vs {match.awayTeam.name}
-                    </h3>
-                    <p className="text-sm text-slate-600">
-                      {match.round}. kolo • Sezóna 2025/2026
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <h4 className="font-bold text-slate-900">Oprávnění uživatelé:</h4>
-                  <div className="grid md:grid-cols-2 gap-4 text-sm">
-                    <div className="bg-primary/5 p-3 rounded-xl">
-                      <div className="font-semibold text-primary">Kapitán {match.homeTeam.name}</div>
-                      <div className="text-slate-600">Může zadávat výsledky tohoto zápasu</div>
-                    </div>
-                    <div className="bg-accent/5 p-3 rounded-xl">
-                      <div className="font-semibold text-accent">Kapitán {match.awayTeam.name}</div>
-                      <div className="text-slate-600">Může zadávat výsledky tohoto zápasu</div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-8 space-y-4">
-                  {session?.user?.role === 'hráč' && (
-                    <p className="text-sm text-orange-600 bg-orange-50 p-3 rounded-xl">
-                      <strong>Hráč:</strong> Kontaktujte svého kapitána pro zadání výsledků.
-                    </p>
-                  )}
-                  
-                  <div className="flex justify-center gap-4">
-                    <Button asChild variant="outline" className="rounded-xl">
-                      <Link href="/schedule">
-                        <Shield className="h-4 w-4 mr-2" />
-                        Zpět na zápasy
-                      </Link>
-                    </Button>
-                    
-                    <Button asChild className="rounded-xl bg-primary hover:bg-[#9F1239] text-white">
-                      <Link href="/profile">
-                        <User className="h-4 w-4 mr-2" />
-                        Můj profil
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div>
+        <PageHeader
+          title="Zadání výsledku"
+          subtitle={`${match.homeTeam.name} – ${match.awayTeam.name}${match.round ? ` · ${match.round}. kolo` : ''}`}
+        />
+        <section className="mx-auto max-w-xl overflow-hidden rounded-lg border border-border bg-white">
+          <div className="flex h-10 items-center gap-2 border-b border-border bg-muted px-3">
+            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+            <h2 className="text-sm font-semibold text-slate-900">Přístup odepřen</h2>
+          </div>
+          <div className="space-y-3 p-3 text-sm text-slate-700">
+            <p>
+              Výsledek mohou zadat jen kapitáni týmů{' '}
+              <span className="font-semibold text-slate-900">{match.homeTeam.shortName || match.homeTeam.name}</span> a{' '}
+              <span className="font-semibold text-slate-900">{match.awayTeam.shortName || match.awayTeam.name}</span>{' '}
+              nebo administrátor.
+            </p>
+            {session?.user?.role === 'hráč' && (
+              <p className="text-xs text-muted-foreground">Jako hráč požádejte o zadání svého kapitána.</p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" className="h-8 font-semibold">
+                <Link href="/schedule">Rozpis</Link>
+              </Button>
+              <Button asChild className="h-8 bg-primary font-semibold text-white hover:bg-[#9F1239]">
+                <Link href="/profile">Můj profil</Link>
+              </Button>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
@@ -272,33 +182,22 @@ export default function MatchPage({ params }: MatchPageProps) {
   // Show mode selector for non-completed matches
   if (entryMode === 'select') {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <ResultModeSelector
-          onModeSelected={(mode) => setEntryMode(mode)}
-          matchInfo={{
-            homeTeam: { name: match.homeTeam.name, shortName: match.homeTeam.shortName },
-            awayTeam: { name: match.awayTeam.name, shortName: match.awayTeam.shortName },
-            round: match.round,
-          }}
-        />
-      </div>
+      <ResultModeSelector
+        onModeSelected={(mode) => setEntryMode(mode)}
+        matchInfo={{
+          homeTeam: { name: match.homeTeam.name, shortName: match.homeTeam.shortName },
+          awayTeam: { name: match.awayTeam.name, shortName: match.awayTeam.shortName },
+          round: match.round,
+        }}
+      />
     );
   }
 
   // Show quick result entry
   if (entryMode === 'quick') {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-4">
-          <Button
-            variant="ghost"
-            onClick={() => setEntryMode('select')}
-            className="gap-2"
-          >
-            <Shield className="h-4 w-4" />
-            Zpět na výběr režimu
-          </Button>
-        </div>
+      <div>
+        <BackToModes onClick={() => setEntryMode('select')} />
         <QuickResultEntry
           matchId={id}
           homeTeam={{
@@ -320,18 +219,32 @@ export default function MatchPage({ params }: MatchPageProps) {
 
   // Show detailed entry (existing SinglePageScorecard)
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => setEntryMode('select')}
-          className="gap-2"
-        >
-          <Shield className="h-4 w-4" />
-          Zpět na výběr režimu
-        </Button>
-      </div>
+    <div>
+      <BackToModes onClick={() => setEntryMode('select')} />
       <SinglePageScorecard match={match} />
     </div>
+  );
+}
+
+/** Stav načítání: jeden řádek se spinnerem, obsah stránky neodskakuje. */
+function LoadingLine({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+      {children}
+    </div>
+  );
+}
+
+function BackToModes({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      onClick={onClick}
+      className="mb-3 h-8 gap-1.5 px-2 text-muted-foreground"
+    >
+      <ArrowLeft className="h-3.5 w-3.5" />
+      Výběr režimu zadání
+    </Button>
   );
 }

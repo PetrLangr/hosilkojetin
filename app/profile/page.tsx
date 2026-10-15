@@ -3,15 +3,69 @@
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { User, Target, Users, Calendar, Settings, Crown, MapPin, Mail, Shield, Plus, Edit } from 'lucide-react';
-import { TeamLogo } from '@/components/team-logo';
 import Link from 'next/link';
+import { ChevronRight, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PageHeader } from '@/components/layout/page-header';
+import { TeamMark } from '@/components/team-mark';
+import { getTeamLogo } from '@/lib/team-logos';
+
+const dateTime = (d: string | null | undefined) =>
+  d
+    ? new Date(d).toLocaleString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'termín neurčen';
+
+const winRate = (played: number, won: number) => (played > 0 ? Math.round((won / played) * 100) : 0);
+
+function Panel({ title, meta, action, children }: {
+  title: string;
+  meta?: React.ReactNode;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-border bg-white">
+      <div className="flex h-10 items-center justify-between gap-2 border-b border-border bg-muted px-3">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h2 className="truncate text-sm font-semibold text-slate-900">{title}</h2>
+          {meta && <span className="text-xs text-muted-foreground tnum">{meta}</span>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex h-row items-center gap-3 px-3 text-sm">
+      <span className="w-16 shrink-0 label-muted">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-slate-900">{children}</span>
+    </div>
+  );
+}
+
+const Muted = ({ children }: { children: React.ReactNode }) => (
+  <p className="px-3 py-4 text-center text-xs text-muted-foreground">{children}</p>
+);
+
+const Loading = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
+    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+    {children}
+  </div>
+);
+
+function Stat({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) {
+  return (
+    <div className="bg-white px-3 py-2">
+      <div className="label-muted">{label}</div>
+      <div className={`mt-0.5 text-lg font-bold tnum ${tone ?? 'text-slate-900'}`}>{value}</div>
+    </div>
+  );
+}
 
 export default function Profile() {
   const { data: session, status } = useSession();
@@ -23,7 +77,6 @@ export default function Profile() {
   const player = user?.player;
   const team = player?.team;
 
-  // Fetch team data when session is ready
   useEffect(() => {
     async function fetchTeamData() {
       if (!team?.id) {
@@ -32,7 +85,6 @@ export default function Profile() {
       }
 
       try {
-        // Fetch team details
         const [teamResponse, matchesResponse] = await Promise.all([
           fetch(`/api/teams/${team.id}`),
           fetch(`/api/teams/${team.id}/matches`)
@@ -60,482 +112,212 @@ export default function Profile() {
   }, [session, team]);
 
   if (status === "loading") {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Target className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Načítám profil...</p>
-        </div>
-      </div>
-    );
+    return <Loading>Načítám profil…</Loading>;
   }
 
   if (!session) {
     redirect("/auth/signin");
   }
 
-  // Redirect admin users to admin dashboard
+  // Admin má vlastní přehled na /admin
   if (session.user.role === 'admin') {
     redirect("/admin");
   }
 
+  const isCaptain = user?.role === 'kapitán';
+  // Vlastní statistiky bereme ze soupisky — API je počítá pro sezónu týmu.
+  const me = teamData?.players?.find((p: any) => p.id === player?.id);
+  const myStats = me?.stats;
+  const openMatches = teamMatches.filter((m: any) => !m.endTime);
+
   return (
     <div className="space-y-4">
-      <PageHeader title="Můj profil" subtitle={user?.name ?? undefined} />
+      <PageHeader
+        title={user?.name || 'Můj profil'}
+        subtitle={[user?.role, team?.name].filter(Boolean).join(' · ') || undefined}
+      />
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        {/* User Info - Enhanced */}
-        <div className="lg:w-1/3">
-          <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-            <CardHeader className="text-center">
-              <div className="w-24 h-24 mx-auto mb-4 rounded-2xl bg-white shadow-lg border border-gray-100 p-2">
-                {user?.image ? (
-                  <img src={user.image} alt={user.name || ''} className="w-full h-full object-cover rounded-xl" />
+      <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+        <div className="space-y-4">
+          <Panel title="Účet">
+            <div className="divide-y divide-border">
+              {user?.email && <InfoRow label="E-mail">{user.email}</InfoRow>}
+              <InfoRow label="Role">{user?.role ?? '—'}</InfoRow>
+              <InfoRow label="Tým">
+                {team ? (
+                  <Link href={`/team/${team.id}`} className="inline-flex max-w-full items-center gap-2 font-medium hover:text-primary">
+                    <TeamMark name={team.name} shortName={team.shortName} logoUrl={getTeamLogo(team.name)} />
+                    <span className="truncate">{team.name}</span>
+                  </Link>
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-primary to-accent rounded-xl grid place-items-center">
-                    <User className="h-10 w-10 text-white" />
-                  </div>
+                  <span className="text-muted-foreground">nepřiřazen</span>
                 )}
+              </InfoRow>
+              {user?.role === 'admin' && (
+                <Link href="/admin" className="group flex h-row items-center gap-3 px-3 text-sm font-medium hover:bg-muted">
+                  <span className="flex-1">Administrace ligy</span>
+                  <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-primary" />
+                </Link>
+              )}
+            </div>
+          </Panel>
+
+          {player && team && isCaptain && (
+            <Panel
+              title="Kapitán"
+              meta={!loading ? `${openMatches.length} k zadání` : undefined}
+            >
+              {loading ? (
+                <Loading>Načítám zápasy…</Loading>
+              ) : openMatches.length > 0 ? (
+                <ul className="divide-y divide-border">
+                  {openMatches.slice(0, 3).map((match: any) => {
+                    const isHome = match.homeTeamId === team.id;
+                    const opponent = isHome ? match.awayTeam : match.homeTeam;
+                    return (
+                      <li key={match.id}>
+                        <Link href={`/match/${match.id}`} className="group flex h-row items-center gap-2 px-3 text-sm hover:bg-muted">
+                          <span className="w-7 shrink-0 text-xs text-muted-foreground tnum">{match.round ? `${match.round}.` : ''}</span>
+                          <span className="min-w-0 flex-1 truncate font-medium text-slate-900">
+                            {isHome ? 'vs' : '@'} {opponent?.name}
+                          </span>
+                          <span className="shrink-0 text-xs font-semibold text-primary">Zadat</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <Muted>Žádný zápas nečeká na zadání.</Muted>
+              )}
+              <div className="border-t border-border p-3">
+                <Button asChild size="sm" className="h-8 w-full rounded-md bg-primary font-semibold text-white hover:bg-[#9F1239]">
+                  <Link href="/schedule">Zadat výsledky zápasů</Link>
+                </Button>
               </div>
-              <CardTitle className="text-2xl font-black text-slate-900">{user?.name}</CardTitle>
-              <CardDescription className="space-y-3">
-                {user?.email && (
-                  <div className="flex items-center justify-center gap-2 text-slate-600">
-                    <Mail className="h-4 w-4" />
-                    <span className="text-sm font-medium">{user.email}</span>
-                  </div>
-                )}
-                
-                <div className="flex items-center justify-center gap-2">
-                  {user?.role === 'kapitán' ? (
-                    <div className="inline-flex items-center gap-2 bg-primary text-white px-3 py-1 rounded-full font-bold text-sm">
-                      <Crown className="h-4 w-4" />
-                      {user.role}
-                    </div>
-                  ) : (
-                    <Badge variant="outline" className="font-bold">
-                      {user?.role}
-                    </Badge>
-                  )}
-                </div>
-
-                {team && (
-                  <div className="pt-2">
-                    <Link href={`/team/${team.id}`} className="hover:underline">
-                      <div className="inline-flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 hover:bg-slate-100 transition-colors">
-                        <div className="size-5">
-                          <TeamLogo teamName={team.name} className="w-full h-full object-contain" />
-                        </div>
-                        <span className="font-semibold text-slate-900 text-sm">{team.name}</span>
-                      </div>
-                    </Link>
-                  </div>
-                )}
-              </CardDescription>
-            </CardHeader>
-
-            {player && (
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="text-center bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl p-4">
-                    <div className="text-3xl font-black text-primary mb-2">
-                      {'0.0'}
-                    </div>
-                    <div className="text-sm text-slate-600 font-semibold uppercase tracking-wide">BPI Index</div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-center">
-                    <div className="bg-slate-50 rounded-xl p-4">
-                      <div className="text-xl font-black text-accent">0</div>
-                      <div className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Singlů</div>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4">
-                      <div className="text-xl font-black text-green-600">0</div>
-                      <div className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Výher</div>
-                    </div>
-                  </div>
-
-                  <div className="text-center bg-slate-50 rounded-xl p-4">
-                    <div className="text-sm text-slate-600 font-semibold uppercase tracking-wide mb-1">Úspěšnost</div>
-                    <div className="text-2xl font-black text-warning">
-                      0%
-                    </div>
-                  </div>
-
-                  {/* Veřejný profil hráče byl zrušen — tlačítko vedlo na neexistující stránku */}
-                </div>
-              </CardContent>
-            )}
-          </Card>
+            </Panel>
+          )}
         </div>
 
-        {/* Main Content - Enhanced */}
-        <div className="lg:w-2/3">
+        <div className="space-y-4 lg:col-span-2">
           {player && team ? (
-            <Tabs defaultValue="team" className="space-y-6">
-              <TabsList className="bg-slate-100 p-2 rounded-2xl w-full">
-                <TabsTrigger value="team" className="rounded-xl px-6 py-3 font-bold flex-1">Můj tým</TabsTrigger>
-                <TabsTrigger value="matches" className="rounded-xl px-6 py-3 font-bold flex-1">Moje zápasy</TabsTrigger>
-                {user?.role === 'kapitán' && (
-                  <TabsTrigger value="captain" className="rounded-xl px-6 py-3 font-bold flex-1">Kapitánské</TabsTrigger>
-                )}
-              </TabsList>
-
-              <TabsContent value="team" className="space-y-6">
-                <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      {team.name} - Soupiska
-                    </CardTitle>
-                    <CardDescription>
-                      Kompletní soupiska vašeho týmu s BPI žebříčkem
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? (
-                      <div className="text-center py-8">
-                        <Target className="h-6 w-6 animate-spin mx-auto mb-2" />
-                        <p className="text-muted-foreground">Načítám soupisku...</p>
-                      </div>
-                    ) : teamData ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>#</TableHead>
-                            <TableHead>Hráč</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead className="text-center">BPI</TableHead>
-                            <TableHead className="text-center">Singlů</TableHead>
-                            <TableHead className="text-center">Úspěšnost</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {teamData.players.map((teamPlayer: any, index: number) => (
-                            <TableRow key={teamPlayer.id} className={teamPlayer.id === player?.id ? 'bg-blue-50' : ''}>
-                              <TableCell className="font-medium">{index + 1}</TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  {teamPlayer.id === player?.id && (
-                                    <Badge variant="outline" className="text-xs">TY</Badge>
-                                  )}
-                                  <div>
-                                    <div className="font-medium">{teamPlayer.name}</div>
-                                    {teamPlayer.nickname && (
-                                      <div className="text-xs text-muted-foreground">
-                                        "{teamPlayer.nickname}"
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {teamPlayer.role === 'kapitán' ? (
-                                  <div className="inline-flex items-center gap-1 bg-primary text-white px-2 py-1 rounded-full font-bold text-xs">
-                                    <Crown className="h-3 w-3" />
-                                    {teamPlayer.role}
-                                  </div>
-                                ) : (
-                                  <Badge variant="outline" className="font-semibold">
-                                    {teamPlayer.role}
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge className="bg-primary/10 text-primary font-bold">{teamPlayer.bpi.toFixed(1)}</Badge>
-                              </TableCell>
-                              <TableCell className="text-center">{teamPlayer.stats.singlesPlayed}</TableCell>
-                              <TableCell className="text-center">
-                                {teamPlayer.stats.singlesPlayed > 0 
-                                  ? Math.round((teamPlayer.stats.singlesWon / teamPlayer.stats.singlesPlayed) * 100)
-                                  : 0}%
-                              </TableCell>
-                            </TableRow>
+            <>
+              {/* Vlastní statistiky sezóny — tenký pruh, detail událostí v jednom řádku */}
+              {loading ? (
+                <Loading>Načítám statistiky…</Loading>
+              ) : myStats ? (
+                <section className="overflow-hidden rounded-lg border border-border bg-white">
+                  <div className="grid grid-cols-2 gap-px border-b border-border bg-border sm:grid-cols-4">
+                    <Stat label="BPI" value={(me.bpi ?? 0).toFixed(1)} tone="text-primary" />
+                    <Stat label="Singly" value={myStats.singlesPlayed} />
+                    <Stat label="Výhry" value={myStats.singlesWon} tone="text-emerald-700" />
+                    <Stat label="Úspěšnost" value={`${winRate(myStats.singlesPlayed, myStats.singlesWon)} %`} />
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {['95+', '133+', '170+', 'CO3', 'CO4', 'CO5', 'CO6'].map((h) => (
+                            <TableHead key={h} className="text-center">{h}</TableHead>
                           ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        Nepodařilo se načíst soupisku týmu
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          {['S95', 'S133', 'S170', 'CO3', 'CO4', 'CO5', 'CO6'].map((k) => (
+                            <TableCell key={k} className="text-center tnum">{myStats[k] ?? 0}</TableCell>
+                          ))}
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </section>
+              ) : null}
 
-              <TabsContent value="matches" className="space-y-6">
-                <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Rozpis týmu {team.name}
-                    </CardTitle>
-                    <CardDescription>
-                      Všechny zápasy vašeho týmu v této sezóně
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? (
-                      <div className="text-center py-8">
-                        <Target className="h-6 w-6 animate-spin mx-auto mb-2" />
-                        <p className="text-muted-foreground">Načítám zápasy...</p>
-                      </div>
-                    ) : teamMatches.length > 0 ? (
-                      <div className="space-y-4">
-                        {teamMatches.map((match: any) => {
-                          const isHome = match.homeTeamId === team.id;
-                          const opponent = isHome ? match.awayTeam : match.homeTeam;
-                          
-                          return (
-                            <div key={match.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-slate-50 transition-colors">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3">
-                                  <div className="size-8">
-                                    <TeamLogo teamName={opponent.name} className="w-full h-full object-contain" />
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <Badge className="bg-primary/10 text-primary font-bold text-xs">
-                                        {match.round}. kolo
-                                      </Badge>
-                                      {isHome && (
-                                        <Badge className="bg-accent/10 text-accent font-bold text-xs">DOMÁCÍ</Badge>
-                                      )}
-                                    </div>
-                                    <div className="font-bold text-slate-900">
-                                      {isHome ? 'vs' : '@'} {opponent.name}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="text-sm text-slate-600 font-medium mt-1">
-                                  {new Date(match.startTime).toLocaleDateString('cs-CZ', {
-                                    day: 'numeric',
-                                    month: 'long',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge 
-                                  variant={match.endTime ? "default" : "outline"}
-                                  className={match.endTime ? 'bg-green-100 text-green-800 font-bold' : 'bg-gray-100 text-gray-800 font-bold'}
-                                >
-                                  {match.endTime ? "Odehráno" : "Naplánováno"}
-                                </Badge>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="rounded-xl border-primary text-primary hover:bg-primary hover:text-white font-semibold"
-                                  asChild
-                                >
-                                  <Link href={`/match/${match.id}`}>
-                                    {match.endTime ? "Detail" : user?.role === 'kapitán' ? "Zadat" : "Zobrazit"}
-                                  </Link>
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        Žádné zápasy nenalezeny
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+              <Panel title="Soupiska" meta={teamData?.players?.length}>
+                {loading ? (
+                  <Loading>Načítám soupisku…</Loading>
+                ) : teamData ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-8">#</TableHead>
+                        <TableHead>Hráč</TableHead>
+                        <TableHead className="hidden md:table-cell">Role</TableHead>
+                        <TableHead className="text-right">BPI</TableHead>
+                        <TableHead className="text-right">Singly</TableHead>
+                        <TableHead className="hidden text-right sm:table-cell">Úsp.</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {teamData.players.map((teamPlayer: any, index: number) => {
+                        const isMe = teamPlayer.id === player?.id;
+                        return (
+                          <TableRow key={teamPlayer.id} className={isMe ? 'bg-primary/5' : ''}>
+                            <TableCell className="text-muted-foreground tnum">{index + 1}</TableCell>
+                            <TableCell>
+                              <span className={isMe ? 'font-semibold text-slate-900' : 'font-medium text-slate-900'}>
+                                {teamPlayer.name}
+                              </span>
+                              {teamPlayer.nickname && (
+                                <span className="ml-1.5 text-xs text-muted-foreground">„{teamPlayer.nickname}“</span>
+                              )}
+                              {isMe && <span className="ml-1.5 text-[11px] font-semibold uppercase text-primary">ty</span>}
+                            </TableCell>
+                            <TableCell className="hidden text-muted-foreground md:table-cell">{teamPlayer.role}</TableCell>
+                            <TableCell className="text-right font-semibold tnum">{teamPlayer.bpi.toFixed(1)}</TableCell>
+                            <TableCell className="text-right tnum">{teamPlayer.stats.singlesPlayed}</TableCell>
+                            <TableCell className="hidden text-right tnum sm:table-cell">
+                              {winRate(teamPlayer.stats.singlesPlayed, teamPlayer.stats.singlesWon)} %
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <Muted>Soupisku se nepodařilo načíst.</Muted>
+                )}
+              </Panel>
 
-              {user?.role === 'kapitán' && (
-                <TabsContent value="captain" className="space-y-6">
-                  <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Crown className="h-5 w-5 text-primary" />
-                        Kapitánské pravomoci
-                      </CardTitle>
-                      <CardDescription>
-                        Funkce dostupné pouze kapitánům
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-6">
-                        <div className="p-6 border border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="size-10 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center">
-                              <Crown className="h-5 w-5 text-white" />
-                            </div>
-                            <h4 className="font-black text-slate-900">Vaše pravomoci:</h4>
-                          </div>
-                          <ul className="text-sm text-slate-700 space-y-2 font-medium">
-                            <li className="flex items-center gap-2">
-                              <div className="size-1.5 rounded-full bg-primary"></div>
-                              Zadávání výsledků zápasů vašeho týmu
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <div className="size-1.5 rounded-full bg-primary"></div>
-                              Podepisování zápisu zápasu
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <div className="size-1.5 rounded-full bg-primary"></div>
-                              Správa sestavy týmu
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <div className="size-1.5 rounded-full bg-primary"></div>
-                              Přístup k týmovým statistikám
-                            </li>
-                          </ul>
-                        </div>
-
-                        <Button asChild className="w-full rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold">
-                          <Link href="/schedule">
-                            <Target className="h-4 w-4 mr-2" />
-                            Zadat výsledky zápasů
+              <Panel title="Zápasy týmu" meta={!loading ? teamMatches.length : undefined}>
+                {loading ? (
+                  <Loading>Načítám zápasy…</Loading>
+                ) : teamMatches.length > 0 ? (
+                  <ul className="divide-y divide-border">
+                    {teamMatches.map((match: any) => {
+                      const isHome = match.homeTeamId === team.id;
+                      const opponent = isHome ? match.awayTeam : match.homeTeam;
+                      return (
+                        <li key={match.id}>
+                          <Link href={`/match/${match.id}`} className="group flex h-row items-center gap-3 px-3 text-sm hover:bg-muted">
+                            <span className="w-7 shrink-0 text-xs text-muted-foreground tnum">{match.round ? `${match.round}.` : ''}</span>
+                            <TeamMark name={opponent.name} shortName={opponent.shortName} logoUrl={getTeamLogo(opponent.name)} />
+                            <span className="min-w-0 flex-1 truncate font-medium text-slate-900">
+                              <span className="mr-1 text-muted-foreground">{isHome ? 'vs' : '@'}</span>
+                              {opponent.name}
+                            </span>
+                            <span className="hidden shrink-0 text-xs text-muted-foreground tnum sm:inline">{dateTime(match.startTime)}</span>
+                            <span className={`w-20 shrink-0 text-right text-xs font-semibold ${match.endTime ? 'text-emerald-700' : 'text-muted-foreground'}`}>
+                              {match.endTime ? 'Odehráno' : isCaptain ? 'Zadat' : 'Naplánováno'}
+                            </span>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-primary" />
                           </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              )}
-            </Tabs>
-          ) : user?.role === 'admin' ? (
-            // Admin dashboard - no player profile needed
-            <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
-                  Administrátorský panel
-                </CardTitle>
-                <CardDescription>
-                  Správa ligy a obsahu
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {/* Admin stats overview */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-4 text-center">
-                      <div className="text-2xl font-black text-primary mb-1">12</div>
-                      <div className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Týmů</div>
-                    </div>
-                    <div className="bg-gradient-to-br from-accent/5 to-accent/10 rounded-xl p-4 text-center">
-                      <div className="text-2xl font-black text-accent mb-1">86</div>
-                      <div className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Hráčů</div>
-                    </div>
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 text-center">
-                      <div className="text-2xl font-black text-blue-600 mb-1">66</div>
-                      <div className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Zápasů</div>
-                    </div>
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 text-center">
-                      <div className="text-2xl font-black text-purple-600 mb-1">2</div>
-                      <div className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Příspěvků</div>
-                    </div>
-                  </div>
-
-                  {/* Quick admin actions */}
-                  <div className="bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="size-10 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center">
-                        <Shield className="h-5 w-5 text-white" />
-                      </div>
-                      <h4 className="font-black text-slate-900">Rychlé akce:</h4>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Button className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold justify-start" asChild>
-                        <Link href="/admin/posts/new">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Nový příspěvek
-                        </Link>
-                      </Button>
-                      <Button variant="outline" className="rounded-xl border-accent text-accent hover:bg-accent hover:text-white font-bold justify-start" asChild>
-                        <Link href="/posts">
-                          <Edit className="h-4 w-4 mr-2" />
-                          Spravovat příspěvky
-                        </Link>
-                      </Button>
-                      <Button variant="outline" className="rounded-xl border-primary text-primary hover:bg-primary hover:text-white font-bold justify-start" asChild>
-                        <Link href="/admin/teams">
-                          <Users className="h-4 w-4 mr-2" />
-                          Spravovat týmy
-                        </Link>
-                      </Button>
-                      <Button variant="outline" className="rounded-xl border-accent text-accent hover:bg-accent hover:text-white font-bold justify-start" asChild>
-                        <Link href="/admin/players">
-                          <Target className="h-4 w-4 mr-2" />
-                          Spravovat hráče
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Admin privileges info */}
-                  <div className="bg-slate-50 rounded-2xl p-6">
-                    <h4 className="font-black text-slate-900 mb-4">Vaše administrátorská oprávnění:</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className="size-1.5 rounded-full bg-primary"></div>
-                          <span>Správa všech týmů a hráčů</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="size-1.5 rounded-full bg-primary"></div>
-                          <span>Vytváření a úprava příspěvků</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="size-1.5 rounded-full bg-primary"></div>
-                          <span>Správa sezón a rozpisů</span>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className="size-1.5 rounded-full bg-accent"></div>
-                          <span>Přístup ke všem zápasům</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="size-1.5 rounded-full bg-accent"></div>
-                          <span>Export dat a statistik</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="size-1.5 rounded-full bg-accent"></div>
-                          <span>Správa uživatelských účtů</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            // Non-admin users without player profile
-            <Card className="rounded-2xl bg-white border border-gray-100 card-shadow">
-              <CardContent className="py-20 text-center">
-                <div className="mx-auto mb-8 size-20 rounded-full bg-slate-100 grid place-items-center">
-                  <User className="size-10 text-slate-400" />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4">Nejste přiřazen k hráči</h3>
-                <p className="text-slate-600 text-lg mb-6">
-                  Váš účet není propojen s žádným hráčem v lize.
-                </p>
-                <div className="bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl p-6 mb-8 max-w-md mx-auto">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Shield className="h-5 w-5 text-primary" />
-                    <span className="font-bold text-slate-900">Co dělat?</span>
-                  </div>
-                  <p className="text-sm text-slate-700 font-medium">
-                    Kontaktujte administrátora pro přiřazení k vašemu hráčskému profilu.
-                  </p>
-                </div>
-                <Button asChild className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold">
-                  <Link href="/contact">
-                    <Mail className="h-4 w-4 mr-2" />
-                    Kontaktovat administrátora
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <Muted>Žádné zápasy.</Muted>
+                )}
+              </Panel>
+            </>
+          ) : user?.role !== 'admin' ? (
+            <div className="rounded-lg border border-border bg-white px-3 py-3 text-sm text-muted-foreground">
+              Účet není propojen s hráčem v lize. Přiřazení zařídí administrátor —{' '}
+              <Link href="/contact" className="font-medium text-primary hover:underline">kontakt</Link>.
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

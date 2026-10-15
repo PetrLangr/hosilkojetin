@@ -10,7 +10,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No active season found' }, { status: 404 });
     }
 
+    // Jen soupisky zvolené sezóny. Bez filtru vracelo ~900 hráčů včetně týmů
+    // z archivních sezón — v žebříčku se pak tentýž člověk opakoval pod starými týmy.
     const players = await prisma.player.findMany({
+      where: { team: { seasonId: season.id } },
       include: {
         team: true,
         stats: {

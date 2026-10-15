@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Lock, KeyRound, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
+import { ErrorBanner, TeamMark } from '@/components/admin/admin-ui';
+import { getTeamLogo } from '@/lib/team-logos';
 
 interface PinAccessProps {
   match: any;
@@ -42,94 +43,55 @@ export function PinAccess({ match, onAccessGranted }: PinAccessProps) {
     }
   };
 
+  const meta = [match.round ? `${match.round}. kolo` : null, match.season?.name].filter(Boolean).join(' · ');
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-md mx-auto">
-        <Card className="rounded-3xl bg-white border border-gray-100 card-shadow">
-          <CardContent className="p-8 text-center">
-            <div className="mb-8">
-              <div className="size-20 rounded-full bg-primary/10 grid place-items-center mx-auto mb-6">
-                <KeyRound className="h-10 w-10 text-primary" />
-              </div>
-              
-              <Badge className="bg-primary text-white px-4 py-2 font-bold mb-4">
-                PIN POŽADOVÁN
-              </Badge>
-              
-              <h1 className="text-2xl font-black text-slate-900 mb-4">
-                ZADEJTE <span className="text-primary">KAPITÁNSKÝ PIN</span>
-              </h1>
-              
-              <p className="text-slate-600 mb-6">
-                Pro zadávání výsledků tohoto zápasu potřebujete PIN kód od kapitána vašeho týmu.
-              </p>
-              
-              <div className="bg-slate-50 rounded-2xl p-4 border border-gray-100 mb-6">
-                <div className="flex items-center justify-center gap-4 mb-3">
-                  <div className="size-8 rounded-lg bg-white shadow-sm border border-slate-200 p-1">
-                    <img 
-                      src={`/logos/dcstopchropyne_logo.png`}
-                      alt={match.homeTeam.name}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div className="text-sm font-black text-slate-900">VS</div>
-                  <div className="size-8 rounded-lg bg-white shadow-sm border border-slate-200 p-1">
-                    <img 
-                      src={`/logos/rychlisnecivlkos_logo.png`}
-                      alt={match.awayTeam.name}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                </div>
-                <div className="text-sm font-semibold text-slate-900">
-                  {match.homeTeam.name} vs {match.awayTeam.name}
-                </div>
-                <div className="text-xs text-slate-600">
-                  {match.round}. kolo • Sezóna 2025/2026
-                </div>
-              </div>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Input
-                  type="text"
-                  placeholder="Zadejte PIN kód"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.slice(0, 6))} // Max 6 digits
-                  className="text-center text-2xl font-bold tracking-widest rounded-xl border-2 border-primary/30 focus:border-primary h-16"
-                  maxLength={6}
-                  autoComplete="off"
-                />
-              </div>
-              
-              {error && (
-                <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-xl">
-                  <AlertCircle className="h-4 w-4" />
-                  <span className="text-sm font-semibold">{error}</span>
-                </div>
-              )}
-              
-              <Button 
-                type="submit" 
-                disabled={loading || pin.length < 4}
-                className="w-full rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold py-4 text-lg"
-              >
-                {loading ? 'Ověřuji...' : 'Ověřit PIN'}
-                <Lock className="h-5 w-5 ml-2" />
-              </Button>
-            </form>
-            
-            <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <div className="text-sm text-blue-700">
-                <strong>Pro kapitány:</strong> PIN kód si můžete nastavit ve svém profilu. 
-                Sdílejte ho pouze s důvěryhodnými členy týmu.
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+    <div>
+      <PageHeader title="Zadání výsledku" subtitle={meta || undefined} />
+
+      <section className="mx-auto max-w-sm overflow-hidden rounded-lg border border-border bg-white">
+        <div className="flex h-10 items-center gap-2 border-b border-border bg-muted px-3 text-sm">
+          <TeamMark name={match.homeTeam.name} shortName={match.homeTeam.shortName} logoUrl={getTeamLogo(match.homeTeam.name)} />
+          <span className="truncate font-semibold text-slate-900">{match.homeTeam.shortName || match.homeTeam.name}</span>
+          <span className="text-muted-foreground">–</span>
+          <span className="truncate font-semibold text-slate-900">{match.awayTeam.shortName || match.awayTeam.name}</span>
+          <TeamMark name={match.awayTeam.name} shortName={match.awayTeam.shortName} logoUrl={getTeamLogo(match.awayTeam.name)} />
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3 p-4">
+          <div className="space-y-1.5">
+            <label htmlFor="match-pin" className="block text-xs font-semibold text-slate-700">
+              PIN kapitána
+            </label>
+            <Input
+              id="match-pin"
+              type="text"
+              inputMode="numeric"
+              placeholder="••••"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.slice(0, 6))} // Max 6 digits
+              className="tnum h-10 text-center text-lg font-semibold tracking-[0.4em]"
+              maxLength={6}
+              autoComplete="off"
+              autoFocus
+            />
+            <p className="text-[11px] text-muted-foreground">
+              PIN nastavuje kapitán v profilu a sdílí ho jen se svým týmem.
+            </p>
+          </div>
+
+          {error && <ErrorBanner message={error} />}
+
+          <Button
+            type="submit"
+            disabled={loading || pin.length < 4}
+            className="h-9 w-full bg-primary font-semibold text-white hover:bg-[#9F1239]"
+          >
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? 'Ověřuji…' : 'Ověřit PIN'}
+          </Button>
+        </form>
+      </section>
     </div>
   );
 }

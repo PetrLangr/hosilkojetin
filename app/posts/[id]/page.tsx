@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Pin } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/layout/page-header";
+import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
 async function getPostById(id: string) {
@@ -65,103 +63,62 @@ export default async function PostPage({ params }: PostPageProps) {
   const relatedPosts = await getRelatedPosts(id);
 
   return (
-    <div>
-      <PageHeader
-        title={post.title}
-        actions={
-          <Link
-            href="/posts"
-            className="flex items-center gap-1.5 rounded-md border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-primary hover:text-primary"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Všechny novinky
-          </Link>
-        }
+    <div className="mx-auto max-w-3xl">
+      <Link
+        href="/posts"
+        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary"
       >
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge
-            variant="secondary"
-            className={`px-1.5 py-0 text-[10px] font-semibold ${
-              post.type === "announcement" ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
-            }`}
-          >
-            {post.type === "announcement" ? "OZNÁMENÍ" : "NOVINKA"}
-          </Badge>
-          {post.pinned && (
-            <Badge
-              variant="secondary"
-              className="flex items-center gap-1 bg-amber-100 px-1.5 py-0 text-[10px] font-semibold text-amber-800"
-            >
-              <Pin className="h-2.5 w-2.5" />
-              PŘIPNUTO
-            </Badge>
-          )}
-          <span className="text-xs text-muted-foreground">
-            {post.authorName} · {czDate(post.createdAt)} · {post.readTime} čtení
-          </span>
-        </div>
-      </PageHeader>
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Novinky
+      </Link>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <article className="lg:col-span-2">
-          <div className="overflow-hidden rounded-lg border border-border bg-white">
-            {/* Obrázek jen když ho příspěvek má — dřív se dosazovala hero fotka
-                dartboardu, takže i článek bez obrázku měl přes celou šířku fotku */}
-            {post.imageUrl && (
-              <img src={post.imageUrl} alt="" className="max-h-64 w-full object-cover" />
-            )}
+      <article className="mt-2">
+        <h1 className="text-2xl font-bold leading-tight tracking-tight text-slate-900">{post.title}</h1>
+        <p className="tnum mt-1.5 text-xs text-muted-foreground">
+          {czDate(post.createdAt)} · {post.authorName} ·{" "}
+          {post.type === "announcement" ? "Oznámení" : "Novinka"} · {post.readTime} čtení
+          {post.pinned && <span className="font-semibold text-primary"> · Připnuto</span>}
+        </p>
 
-            <div className="space-y-3 p-4">
-              {post.excerpt && (
-                <p className="border-l-2 border-primary/40 pl-3 text-sm font-medium text-slate-700">
-                  {post.excerpt}
-                </p>
-              )}
-
-              <div
-                className="prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-slate-900 prose-p:text-slate-700 prose-p:leading-relaxed prose-strong:text-slate-900 prose-li:text-slate-700"
-                dangerouslySetInnerHTML={{ __html: post.content }}
-              />
-            </div>
-          </div>
-        </article>
-
-        {relatedPosts.length > 0 && (
-          <aside>
-            <section className="overflow-hidden rounded-lg border border-border bg-white">
-              <h2 className="border-b border-border bg-muted px-3 py-2 text-sm font-semibold text-slate-900">
-                Další novinky
-              </h2>
-              <ul className="divide-y divide-border">
-                {relatedPosts.map((r) => (
-                  <li key={r.id}>
-                    <Link href={`/posts/${r.id}`} className="group block px-3 py-2 hover:bg-rose-50/50">
-                      <div className="mb-0.5 flex items-center gap-1.5">
-                        <Badge
-                          variant="secondary"
-                          className={`px-1.5 py-0 text-[10px] font-semibold ${
-                            r.type === "announcement"
-                              ? "bg-primary/10 text-primary"
-                              : "bg-accent/10 text-accent"
-                          }`}
-                        >
-                          {r.type === "announcement" ? "OZNÁMENÍ" : "NOVINKA"}
-                        </Badge>
-                        <span className="tnum text-[11px] text-muted-foreground">
-                          {new Date(r.createdAt).toLocaleDateString("cs-CZ")}
-                        </span>
-                      </div>
-                      <p className="text-xs font-medium leading-snug text-slate-900 group-hover:text-primary">
-                        {r.title}
-                      </p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </aside>
+        {/* Obrázek jen když ho příspěvek má — dřív se dosazovala hero fotka
+            dartboardu, takže i článek bez obrázku měl přes celou šířku fotku */}
+        {post.imageUrl && (
+          <img src={post.imageUrl} alt="" className="mt-4 max-h-80 w-full rounded-lg object-cover" />
         )}
-      </div>
+
+        {post.excerpt && (
+          <p className="mt-4 text-[15px] font-medium leading-relaxed text-slate-800">{post.excerpt}</p>
+        )}
+
+        {/* Typography plugin v projektu není, takže prose-* třídy nic nedělaly a HTML
+            z editoru se vykreslovalo bez odsazení. Styly pro jeho tagy proto přímo. */}
+        <div
+          className="mt-4 space-y-3 text-[15px] leading-7 text-slate-700 [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:text-[#9F1239] [&_h2]:pt-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-slate-900 [&_h3]:pt-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-slate-900 [&_li]:pl-1 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_strong]:font-semibold [&_strong]:text-slate-900 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5"
+          dangerouslySetInnerHTML={{ __html: post.content }}
+        />
+      </article>
+
+      {relatedPosts.length > 0 && (
+        <section className="mt-8 overflow-hidden rounded-lg border border-border bg-white">
+          <h2 className="flex h-10 items-center border-b border-border bg-muted px-3 text-sm font-semibold text-slate-900">
+            Další novinky
+          </h2>
+          <ul className="divide-y divide-border">
+            {relatedPosts.map((r) => (
+              <li key={r.id}>
+                <Link href={`/posts/${r.id}`} className="group flex min-h-10 items-baseline gap-3 px-3 py-2 hover:bg-muted/60">
+                  <span className="tnum w-20 shrink-0 text-xs text-muted-foreground">
+                    {new Date(r.createdAt).toLocaleDateString("cs-CZ")}
+                  </span>
+                  <span className="min-w-0 text-sm font-medium leading-snug text-slate-900 group-hover:text-primary">
+                    {r.title}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

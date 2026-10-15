@@ -1,17 +1,46 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useSession } from 'next-auth/react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Save, Users, Target, Trophy, Calendar, FileText, Plus, Minus, BarChart3, Edit, RefreshCw, ArrowUpDown } from 'lucide-react';
-import { TeamLogo } from '@/components/team-logo';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { Save, FileText, Edit, ArrowUpDown, Check, X, Loader2 } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
+import { TeamMark } from '@/components/admin/admin-ui';
+import { getTeamLogo } from '@/lib/team-logos';
 import { ImprovedSubstitution } from './improved-substitution';
+
+/** Rámeček sekce zápisu — stejný vzor jako panely v administraci. */
+function Panel({ title, meta, action, children }: {
+  title: ReactNode;
+  meta?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-border bg-white">
+      <div className="flex h-10 items-center justify-between gap-2 border-b border-border bg-muted px-3">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h2 className="truncate text-sm font-semibold text-slate-900">{title}</h2>
+          {meta != null && <span className="shrink-0 text-xs text-muted-foreground tnum">{meta}</span>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+// Hry jdou v pořadí papírového zápisu; disciplína je u řádku jen jako popisek.
+const DISCIPLINE_LABELS: Record<string, string> = {
+  single: 'Single 501',
+  double_501: 'Dvojice 501',
+  double_cricket: 'Cricket',
+  triple_301: 'Trojice 301',
+  tiebreak_701: 'Rozstřel 701',
+};
 
 // HŠL Game structure - správné pořadí podle oficiálního zápisu
 const HSL_GAMES = [
@@ -607,742 +636,466 @@ export function SinglePageScorecard({ match }: SinglePageScorecardProps) {
     return { activePlayers, benchPlayers };
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Match Header */}
-      <Card className="rounded-2xl bg-gradient-to-br from-primary/5 to-accent/5 border">
-        <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 mb-2">
-                ZÁPIS UTKÁNÍ - {match.round}. KOLO
-              </h1>
-              <p className="text-slate-600">
-                {match.startTime ? new Date(match.startTime).toLocaleDateString('cs-CZ', {
-                  weekday: 'long', day: 'numeric', month: 'long'
-                }) : 'Datum bude upřesněn'}
-              </p>
-            </div>
-            <Badge className="bg-primary text-white px-4 py-2 font-bold text-lg">
-              {homeWins} : {awayWins}
-            </Badge>
-          </div>
 
-          {/* Teams */}
-          <div className="grid grid-cols-2 gap-8">
-            <div className="text-center">
-              <div className="size-16 rounded-xl bg-white shadow-sm border p-2 mx-auto mb-3">
-                <TeamLogo teamName={match.homeTeam.name} className="w-full h-full object-contain" />
-              </div>
-              <h2 className="font-black text-xl text-slate-900">{match.homeTeam.name}</h2>
-              <p className="text-sm text-slate-600 font-semibold">DOMÁCÍ</p>
-            </div>
-            <div className="text-center">
-              <div className="size-16 rounded-xl bg-white shadow-sm border p-2 mx-auto mb-3">
-                <TeamLogo teamName={match.awayTeam.name} className="w-full h-full object-contain" />
-              </div>
-              <h2 className="font-black text-xl text-slate-900">{match.awayTeam.name}</h2>
-              <p className="text-sm text-slate-600 font-semibold">HOSTÉ</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  // Součty legů — stejný výpočet jako v matchResult.totalLegs při ukládání.
+  const homeLegs = Object.values(gameResults).reduce((sum, result) => sum + (result?.homeScore || 0), 0);
+  const awayLegs = Object.values(gameResults).reduce((sum, result) => sum + (result?.awayScore || 0), 0);
 
-      {/* Tabs Navigation */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        {[
-          { id: 'lineups', icon: Users, label: lineupsSaved ? 'SESTAVY ✓' : 'SESTAVY', enabled: true },
-          { id: 'results', icon: Target, label: `VÝSLEDKY (${completedGames}/${totalGames})`, enabled: lineupsSaved },
-          { id: 'stats', icon: BarChart3, label: 'STATISTIKY', enabled: lineupsSaved }
-        ].map(({ id, icon: Icon, label, enabled }) => (
-          <Button
-            key={id}
-            variant={activeTab === id ? "default" : "outline"}
-            className={`rounded-xl font-bold py-6 ${
-              !enabled 
-                ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-200 text-slate-400' 
-                : activeTab === id 
-                  ? 'bg-primary text-white hover:bg-[#9F1239]'
-                  : 'border-primary text-primary hover:bg-primary hover:text-white'
-            }`}
-            onClick={() => enabled && setActiveTab(id)}
-            disabled={!enabled}
+  // Křestní jména hráčů na straně, včetně střídání v této hře.
+  const sideNames = (game: typeof HSL_GAMES[number], team: 'home' | 'away') => {
+    const positions = team === 'home' ? game.positions.home : game.positions.away;
+    const players = team === 'home' ? match.homeTeam.players : match.awayTeam.players;
+    return positions.split('+').map(pos => {
+      const effectivePlayerId = getEffectivePlayer(pos, game.id, team);
+      const playerName = players?.find((p: any) => p.id === effectivePlayerId)?.name || pos;
+      return playerName.split(' ')[0];
+    }).join(' + ');
+  };
+
+  // Postupné skóre po dané hře (jako "průběh" v papírovém zápisu).
+  const getProgressiveScore = (currentGameId: number) => {
+    let progressiveHomeWins = 0;
+    let progressiveAwayWins = 0;
+    for (let i = 1; i <= currentGameId; i++) {
+      const gameResult = gameResults[i];
+      if (gameResult) {
+        if (gameResult.winner === 'home') progressiveHomeWins++;
+        if (gameResult.winner === 'away') progressiveAwayWins++;
+      }
+    }
+    return { home: progressiveHomeWins, away: progressiveAwayWins };
+  };
+
+  const visibleGames = HSL_GAMES.filter(game => !game.onlyIfTied || isTied || tiebreakStarted);
+
+  const renderLineupColumn = (team: 'home' | 'away') => {
+    const isHome = team === 'home';
+    const teamData = isHome ? match.homeTeam : match.awayTeam;
+    const lineup = isHome ? homeLineup : awayLineup;
+    const setLineup = isHome ? setHomeLineup : setAwayLineup;
+    const basePositions = isHome ? ['D1', 'D2', 'D3'] : ['H1', 'H2', 'H3'];
+    const benchPositions = isHome ? ['D4', 'D5', 'D6'] : ['H4', 'H5', 'H6'];
+
+    return (
+      <div className="p-3">
+        <div className="mb-2 flex items-center gap-2">
+          <TeamMark name={teamData.name} logoUrl={getTeamLogo(teamData.name)} />
+          <span className="truncate text-sm font-semibold text-slate-900">{teamData.name}</span>
+          <span className="label-muted">{isHome ? 'Domácí' : 'Hosté'}</span>
+        </div>
+        <div className="label-muted mb-1">Základní sestava</div>
+        <div className="space-y-1.5">
+          {basePositions.map(pos => (
+            <div key={pos} className="flex items-center gap-2">
+              <span className="w-7 shrink-0 text-xs font-semibold text-slate-700 tnum">{pos}</span>
+              <Select value={lineup[pos]} onValueChange={(value) => setLineup(prev => ({ ...prev, [pos]: value }))}>
+                <SelectTrigger className="h-10 flex-1">
+                  <SelectValue placeholder="Vyberte hráče" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailablePlayersForPosition(teamData.players, pos, team)?.map((player: any) => (
+                    <SelectItem key={player.id} value={player.id}>
+                      {player.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+        <div className="label-muted mb-1 mt-3">Náhradníci</div>
+        <div className="space-y-1.5">
+          {benchPositions.map(pos => (
+            <div key={pos} className="flex items-center gap-2">
+              <span className="w-7 shrink-0 text-xs font-semibold text-muted-foreground tnum">{pos}</span>
+              <Select value={lineup[pos]} onValueChange={(value) => setLineup(prev => ({ ...prev, [pos]: value }))}>
+                <SelectTrigger className="h-10 flex-1">
+                  <SelectValue placeholder="Volitelné" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Žádný</SelectItem>
+                  {getAvailablePlayersForPosition(teamData.players, pos, team)?.map((player: any) => (
+                    <SelectItem key={player.id} value={player.id}>
+                      {player.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSubstitution = (game: typeof HSL_GAMES[number], team: 'home' | 'away') => {
+    const side = team === 'home' ? 'D' : 'H';
+    const current = substitutions[game.id]?.[team];
+    if (current) {
+      return (
+        <div className="flex h-8 items-center gap-1 rounded-md border border-border pl-2 text-xs">
+          <span className="font-semibold text-muted-foreground">{side}</span>
+          {current.split(', ').map((sub, idx) => (
+            <span key={idx} className="tnum text-slate-900">{sub}</span>
+          ))}
+          <button
+            type="button"
+            onClick={() => handleSubstitution(game.id, team, '')}
+            className="grid h-8 w-8 place-items-center text-slate-400 hover:text-slate-900"
+            aria-label="Zrušit střídání"
           >
-            <Icon className="h-5 w-5 mr-2" />
-            {label}
-          </Button>
-        ))}
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      );
+    }
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => openQuickSubstitution(game.id, team)}
+        className="h-8 px-2 text-xs font-medium text-slate-600"
+        disabled={!lineupsValid}
+      >
+        <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
+        Střídání {side}
+      </Button>
+    );
+  };
+
+  const renderScoreSelect = (game: typeof HSL_GAMES[number], team: 'home' | 'away') => {
+    const result = gameResults[game.id];
+    const isHome = team === 'home';
+    const isWinner = !!result && result.winner === team;
+    return (
+      <Select
+        value={(isHome ? result?.homeScore : result?.awayScore)?.toString() || ''}
+        onValueChange={(value) => {
+          if (isHome) {
+            const homeScore = parseInt(value);
+            const awayScore = result?.awayScore || 0;
+            updateGameResult(game.id, homeScore, awayScore);
+          } else {
+            const awayScore = parseInt(value);
+            const homeScore = result?.homeScore || 0;
+            updateGameResult(game.id, homeScore, awayScore);
+          }
+        }}
+      >
+        <SelectTrigger
+          aria-label={isHome ? 'Legy domácí' : 'Legy hosté'}
+          className={`h-10 w-14 px-2.5 tnum ${isWinner ? 'font-bold text-slate-900' : 'text-slate-500'}`}
+        >
+          <SelectValue placeholder="–" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="0">0</SelectItem>
+          <SelectItem value="1">1</SelectItem>
+          {(game.type === 'double_cricket' || game.type === 'tiebreak_701') ? null : (
+            <SelectItem value="2">2</SelectItem>
+          )}
+        </SelectContent>
+      </Select>
+    );
+  };
+
+  // Silnější předěl jen tam, kde se mění disciplína — usnadní orientaci v 16 řádcích.
+  const renderGameRow = (game: typeof HSL_GAMES[number], idx: number, disciplineChange: boolean) => {
+    const result = gameResults[game.id];
+    const isCompleted = !!result;
+    const progressiveScore = getProgressiveScore(game.id);
+
+    return (
+      <div
+        key={game.id}
+        className={`flex flex-col gap-2 px-3 py-2 md:flex-row md:items-center md:gap-3 ${
+          idx === 0 ? '' : disciplineChange ? 'border-t border-slate-300' : 'border-t border-border'
+        }`}
+      >
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          <span className={`w-5 shrink-0 pt-px text-right text-xs font-semibold tnum ${isCompleted ? 'text-slate-900' : 'text-muted-foreground'}`}>
+            {game.id}
+          </span>
+          <div className="min-w-0 leading-tight">
+            <div className="text-sm">
+              <span className={result?.winner === 'home' ? 'font-semibold text-slate-900' : 'text-slate-700'}>
+                {sideNames(game, 'home')}
+              </span>
+              <span className="px-1.5 text-muted-foreground">–</span>
+              <span className={result?.winner === 'away' ? 'font-semibold text-slate-900' : 'text-slate-700'}>
+                {sideNames(game, 'away')}
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              <span className="font-medium text-slate-600">{DISCIPLINE_LABELS[game.type]}</span>
+              {' · '}{game.name}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 pl-7 md:pl-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {renderSubstitution(game, 'home')}
+            {renderSubstitution(game, 'away')}
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {renderScoreSelect(game, 'home')}
+            <span className="text-muted-foreground">:</span>
+            {renderScoreSelect(game, 'away')}
+            <span
+              title="Průběžné skóre"
+              className={`w-10 text-right text-xs tnum ${isCompleted ? 'text-slate-700' : 'text-slate-300'}`}
+            >
+              {progressiveScore.home}:{progressiveScore.away}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStatsPanel = (team: 'home' | 'away') => {
+    const isHome = team === 'home';
+    const teamData = isHome ? match.homeTeam : match.awayTeam;
+    const lineup = isHome ? homeLineup : awayLineup;
+    const positions = isHome ? ['D1', 'D2', 'D3', 'D4', 'D5', 'D6'] : ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+
+    return (
+      <Panel
+        title={
+          <span className="flex items-center gap-2">
+            <TeamMark name={teamData.name} logoUrl={getTeamLogo(teamData.name)} />
+            {teamData.name}
+          </span>
+        }
+      >
+        <div className="divide-y divide-border">
+          {positions.filter(pos => lineup[pos] && lineup[pos] !== 'none').map(pos => {
+            const playerId = lineup[pos];
+            const playerName = teamData.players?.find((p: any) => p.id === playerId)?.name || pos;
+
+            return (
+              <div key={pos} className="px-3 py-2">
+                <div className="mb-1.5 flex items-baseline gap-2 text-sm">
+                  <span className="font-semibold text-slate-900">{playerName}</span>
+                  <span className="text-xs text-muted-foreground tnum">{pos}</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-9">
+                  {['95+', '133+', '170+', 'Asfalt'].map(stat => (
+                    <label key={stat} className="block text-center">
+                      <span className="mb-0.5 block text-[10px] font-semibold uppercase text-muted-foreground">{stat}</span>
+                      <Input
+                        className="h-9 px-1 text-center text-sm tnum"
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={playerStats[playerId]?.[stat === 'Asfalt' ? 'Asfalt' : stat.replace('+', '')] || ''}
+                        onChange={(e) => updatePlayerStat(playerId, stat === 'Asfalt' ? 'Asfalt' : stat.replace('+', ''), parseInt(e.target.value) || 0)}
+                      />
+                    </label>
+                  ))}
+                  {['CO3', 'CO4', 'CO5', 'CO6', 'Nejvyšší zavření'].map(stat => (
+                    <label key={stat} className="block text-center">
+                      <span className="mb-0.5 block text-[10px] font-semibold uppercase text-muted-foreground">{stat === 'Nejvyšší zavření' ? 'Max CO' : stat}</span>
+                      <Input
+                        className="h-9 px-1 text-center text-sm tnum"
+                        type="number"
+                        min="0"
+                        max={stat === 'Nejvyšší zavření' ? '170' : undefined}
+                        placeholder="0"
+                        value={playerStats[playerId]?.[stat === 'Nejvyšší zavření' ? 'highestCheckout' : stat] || ''}
+                        onChange={(e) => updatePlayerStat(playerId, stat === 'Nejvyšší zavření' ? 'highestCheckout' : stat, parseInt(e.target.value) || 0)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
+    );
+  };
+
+  const saveIcon = saving
+    ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+    : <Save className="mr-1.5 h-4 w-4" />;
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Zápis utkání"
+        subtitle={
+          <>
+            {match.round}. kolo ·{' '}
+            {match.startTime ? new Date(match.startTime).toLocaleDateString('cs-CZ', {
+              weekday: 'long', day: 'numeric', month: 'long'
+            }) : 'Datum bude upřesněn'}
+          </>
+        }
+      />
+
+      {/* Souhrn drží u lišty, aby bylo skóre vidět i při zadávání dole v seznamu her. */}
+      <div className="sticky top-[57px] z-30 rounded-lg border border-border bg-white">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 py-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <TeamMark name={match.homeTeam.name} logoUrl={getTeamLogo(match.homeTeam.name)} />
+            <span className="truncate text-sm font-semibold text-slate-900">{match.homeTeam.name}</span>
+          </div>
+          <div className="text-center leading-tight">
+            <div className="text-xl font-bold text-slate-900 tnum">{homeWins}:{awayWins}</div>
+            <div className="text-[11px] text-muted-foreground tnum">legy {homeLegs}:{awayLegs}</div>
+          </div>
+          <div className="flex min-w-0 items-center justify-end gap-2">
+            <span className="truncate text-right text-sm font-semibold text-slate-900">{match.awayTeam.name}</span>
+            <TeamMark name={match.awayTeam.name} logoUrl={getTeamLogo(match.awayTeam.name)} />
+          </div>
+        </div>
+
+        {/* Kroky zápisu — výsledky a statistiky se odemknou po uložení sestav. */}
+        <div className="grid grid-cols-3 gap-0.5 border-t border-border bg-muted p-0.5">
+          {[
+            { id: 'lineups', label: 'Sestavy', done: lineupsSaved, enabled: true },
+            { id: 'results', label: `Výsledky ${completedGames}/${totalGames}`, done: false, enabled: lineupsSaved },
+            { id: 'stats', label: 'Statistiky', done: false, enabled: lineupsSaved }
+          ].map(({ id, label, done, enabled }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => enabled && setActiveTab(id)}
+              disabled={!enabled}
+              aria-pressed={activeTab === id}
+              className={`flex h-9 items-center justify-center gap-1 rounded text-xs font-semibold tnum transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                activeTab === id
+                  ? 'bg-white text-slate-900 ring-1 ring-border'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {done && <Check className="h-3.5 w-3.5 text-emerald-700" />}
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        {/* Lineups Tab */}
-        <TabsContent value="lineups">
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Home Team */}
-            <Card className="rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-white shadow-sm border p-1">
-                    <TeamLogo teamName={match.homeTeam.name} className="w-full h-full object-contain" />
-                  </div>
-                  {match.homeTeam.name}
-                  <Badge className="bg-primary/10 text-primary font-bold">DOMÁCÍ</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Základní sestava *</h4>
-                  {['D1', 'D2', 'D3'].map(pos => (
-                    <div key={pos} className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-primary/10 text-primary font-bold w-8 pointer-events-none">{pos}</Badge>
-                      <Select value={homeLineup[pos]} onValueChange={(value) => setHomeLineup(prev => ({ ...prev, [pos]: value }))}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Vyberte hráče" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getAvailablePlayersForPosition(match.homeTeam.players, pos, 'home')?.map((player: any) => (
-                            <SelectItem key={player.id} value={player.id}>
-                              {player.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                </div>
-                
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Náhradníci</h4>
-                  {['D4', 'D5', 'D6'].map(pos => (
-                    <div key={pos} className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-slate-100 text-slate-600 font-bold w-8 pointer-events-none">{pos}</Badge>
-                      <Select value={homeLineup[pos]} onValueChange={(value) => setHomeLineup(prev => ({ ...prev, [pos]: value }))}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Volitelné" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Žádný</SelectItem>
-                          {getAvailablePlayersForPosition(match.homeTeam.players, pos, 'home')?.map((player: any) => (
-                            <SelectItem key={player.id} value={player.id}>
-                              {player.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+        {/* Sestavy */}
+        <TabsContent value="lineups" className="mt-0 space-y-3">
+          <Panel title="Sestavy">
+            <div className="grid divide-y divide-border lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+              {renderLineupColumn('home')}
+              {renderLineupColumn('away')}
+            </div>
+          </Panel>
 
-            {/* Away Team */}
-            <Card className="rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-white shadow-sm border p-1">
-                    <TeamLogo teamName={match.awayTeam.name} className="w-full h-full object-contain" />
-                  </div>
-                  {match.awayTeam.name}
-                  <Badge className="bg-accent/10 text-accent font-bold">HOSTÉ</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Základní sestava *</h4>
-                  {['H1', 'H2', 'H3'].map(pos => (
-                    <div key={pos} className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-accent/10 text-accent font-bold w-8 pointer-events-none">{pos}</Badge>
-                      <Select value={awayLineup[pos]} onValueChange={(value) => setAwayLineup(prev => ({ ...prev, [pos]: value }))}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Vyberte hráče" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getAvailablePlayersForPosition(match.awayTeam.players, pos, 'away')?.map((player: any) => (
-                            <SelectItem key={player.id} value={player.id}>
-                              {player.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                </div>
-                
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Náhradníci</h4>
-                  {['H4', 'H5', 'H6'].map(pos => (
-                    <div key={pos} className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-slate-100 text-slate-600 font-bold w-8 pointer-events-none">{pos}</Badge>
-                      <Select value={awayLineup[pos]} onValueChange={(value) => setAwayLineup(prev => ({ ...prev, [pos]: value }))}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Volitelné" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Žádný</SelectItem>
-                          {getAvailablePlayersForPosition(match.awayTeam.players, pos, 'away')?.map((player: any) => (
-                            <SelectItem key={player.id} value={player.id}>
-                              {player.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {!basicLineupsFilled && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Nejprve vyplňte základní sestavu (D1–D3, H1–H3).
+            </p>
+          )}
 
-          {/* Validation Messages */}
-          <div className="space-y-3 mt-6">
-            {!basicLineupsFilled && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-800 font-medium">
-                  ⚠️ Nejprve nastavte základní sestavu (D1-D3, H1-H3)
-                </p>
-              </div>
-            )}
-            
-            {lineupsValid && !lineupsSaved && (
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                <p className="text-sm text-green-800 font-medium">
-                  ✅ Sestavy jsou v pořádku - můžete je uložit
-                </p>
-              </div>
-            )}
-          </div>
+          {lineupsValid && !lineupsSaved && (
+            <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              Sestavy jsou kompletní, můžete je uložit.
+            </p>
+          )}
 
-          {/* Save/Edit Lineups Button */}
-          <div className="mt-6 text-center">
-            {!lineupsSaved ? (
-              <Button 
+          {!lineupsSaved ? (
+            <div className="flex justify-end">
+              <Button
                 onClick={saveLineups}
                 disabled={!lineupsValid}
-                className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold px-8"
+                className="h-9 rounded-md bg-primary font-semibold text-white hover:bg-[#9F1239]"
               >
-                <Save className="h-4 w-4 mr-2" />
+                <Save className="mr-1.5 h-4 w-4" />
                 Uložit sestavy
               </Button>
-            ) : (
-              <div className="space-y-3">
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                  <p className="text-sm text-green-800 font-medium">
-                    ✅ Sestavy byly uloženy - můžete zadávat výsledky
-                  </p>
-                </div>
-                <Button 
-                  onClick={editLineups}
-                  variant="outline"
-                  className="rounded-xl border-primary text-primary hover:bg-primary hover:text-white font-bold"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Upravit sestavy
-                </Button>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-xs text-emerald-800">
+                <Check className="h-3.5 w-3.5" />
+                Sestavy uloženy, můžete zadávat výsledky.
+              </p>
+              <Button
+                onClick={editLineups}
+                variant="outline"
+                className="h-9 rounded-md font-semibold"
+              >
+                <Edit className="mr-1.5 h-4 w-4" />
+                Upravit sestavy
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
-        {/* Results Tab */}
-        <TabsContent value="results">
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-primary" />
-                Průběh utkání ({completedGames}/{totalGames})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">#</TableHead>
-                    <TableHead>Typ zápasu</TableHead>
-                    <TableHead className="w-40">Formát</TableHead>
-                    <TableHead className="w-48">Střídání</TableHead>
-                    <TableHead className="w-32">Domácí</TableHead>
-                    <TableHead className="w-32">Hosté</TableHead>
-                    <TableHead className="w-24">Výsledek</TableHead>
-                    <TableHead className="w-32">Stav</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {HSL_GAMES.filter(game => !game.onlyIfTied || isTied || tiebreakStarted).map((game) => {
-                    const result = gameResults[game.id];
-                    const isCompleted = !!result;
-                    
-                    // Calculate progressive score for this game
-                    const getProgressiveScore = (currentGameId: number) => {
-                      let progressiveHomeWins = 0;
-                      let progressiveAwayWins = 0;
-                      
-                      for (let i = 1; i <= currentGameId; i++) {
-                        const gameResult = gameResults[i];
-                        if (gameResult) {
-                          if (gameResult.winner === 'home') progressiveHomeWins++;
-                          if (gameResult.winner === 'away') progressiveAwayWins++;
-                        }
-                      }
-                      
-                      return { home: progressiveHomeWins, away: progressiveAwayWins };
-                    };
+        {/* Výsledky her */}
+        <TabsContent value="results" className="mt-0 space-y-3">
+          <Panel title="Hry" meta={`${completedGames}/${totalGames} zadáno`}>
+            {visibleGames.map((game, idx) => renderGameRow(game, idx, visibleGames[idx - 1]?.type !== game.type))}
+          </Panel>
 
-                    // Subtle game type styling (like standings) - no hover
-                    const getGameTypeBadge = (type: string) => {
-                      switch (type) {
-                        case 'single': return 'bg-slate-100 text-slate-700 border-slate-200';
-                        case 'double_cricket': return 'bg-purple-50 text-purple-700 border-purple-200';
-                        case 'double_501': return 'bg-green-50 text-green-700 border-green-200';
-                        case 'triple_301': return 'bg-orange-50 text-orange-700 border-orange-200';
-                        case 'tiebreak_701': return 'bg-red-50 text-red-700 border-red-200';
-                        default: return 'bg-slate-100 text-slate-700 border-slate-200';
-                      }
-                    };
-                    
-                    const progressiveScore = getProgressiveScore(game.id);
-                    
-                    return (
-                      <TableRow 
-                        key={game.id} 
-                        className={`border-b border-slate-100 ${
-                          isCompleted 
-                            ? 'bg-green-50/50 hover:bg-green-50' 
-                            : 'hover:bg-slate-50'
-                        } transition-all duration-200`}
-                      >
-                        <TableCell>
-                          <div className={`size-8 rounded-lg grid place-items-center font-bold text-sm ${
-                            isCompleted 
-                              ? 'bg-green-100 text-green-700 border border-green-200' 
-                              : 'bg-slate-100 text-slate-600 border border-slate-200'
-                          }`}>
-                            {game.id}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="font-semibold text-slate-900">{game.name}</div>
-                            <div className="flex items-center gap-3 text-sm">
-                              <div className="flex items-center gap-1">
-                                <div className="size-2 rounded-full bg-primary"></div>
-                                <span className="text-primary font-medium">
-                                  {game.positions.home.includes('+') 
-                                    ? game.positions.home.split('+').map(pos => {
-                                        const effectivePlayerId = getEffectivePlayer(pos, game.id, 'home');
-                                        const playerName = match.homeTeam.players?.find((p: any) => p.id === effectivePlayerId)?.name || pos;
-                                        return playerName.split(' ')[0]; // First name only
-                                      }).join('+')
-                                    : (() => {
-                                        const effectivePlayerId = getEffectivePlayer(game.positions.home, game.id, 'home');
-                                        const playerName = match.homeTeam.players?.find((p: any) => p.id === effectivePlayerId)?.name || game.positions.home;
-                                        return playerName.split(' ')[0]; // First name only
-                                      })()
-                                  }
-                                </span>
-                              </div>
-                              <span className="text-slate-400 font-medium">vs</span>
-                              <div className="flex items-center gap-1">
-                                <div className="size-2 rounded-full bg-accent"></div>
-                                <span className="text-accent font-medium">
-                                  {game.positions.away.includes('+') 
-                                    ? game.positions.away.split('+').map(pos => {
-                                        const effectivePlayerId = getEffectivePlayer(pos, game.id, 'away');
-                                        const playerName = match.awayTeam.players?.find((p: any) => p.id === effectivePlayerId)?.name || pos;
-                                        return playerName.split(' ')[0]; // First name only
-                                      }).join('+')
-                                    : (() => {
-                                        const effectivePlayerId = getEffectivePlayer(game.positions.away, game.id, 'away');
-                                        const playerName = match.awayTeam.players?.find((p: any) => p.id === effectivePlayerId)?.name || game.positions.away;
-                                        return playerName.split(' ')[0]; // First name only
-                                      })()
-                                  }
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            className={`text-sm font-semibold whitespace-nowrap border px-3 py-1 pointer-events-none ${getGameTypeBadge(game.type)}`}
-                          >
-                            {game.format}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-2">
-                            {/* Home substitution */}
-                            <div className="flex items-center gap-1">
-                              <div className="size-3 rounded-full bg-primary"></div>
-                              {substitutions[game.id]?.home ? (
-                                <div className="flex flex-col gap-1 text-xs">
-                                  {substitutions[game.id].home!.split(', ').map((sub, idx) => (
-                                    <div key={idx} className="flex items-center gap-1">
-                                      <Badge variant="outline" className="h-6 text-xs">
-                                        {sub}
-                                      </Badge>
-                                    </div>
-                                  ))}
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleSubstitution(game.id, 'home', '')}
-                                    className="h-6 w-6 p-0 self-start"
-                                  >
-                                    ✕
-                                  </Button>
-                                </div>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => openQuickSubstitution(game.id, 'home')}
-                                  className="h-6 px-2 text-xs"
-                                  disabled={!lineupsValid}
-                                >
-                                  <ArrowUpDown className="h-3 w-3 mr-1" />
-                                  Střídání
-                                </Button>
-                              )}
-                            </div>
-
-                            {/* Away substitution */}
-                            <div className="flex items-center gap-1">
-                              <div className="size-3 rounded-full bg-accent"></div>
-                              {substitutions[game.id]?.away ? (
-                                <div className="flex flex-col gap-1 text-xs">
-                                  {substitutions[game.id].away!.split(', ').map((sub, idx) => (
-                                    <div key={idx} className="flex items-center gap-1">
-                                      <Badge variant="outline" className="h-6 text-xs">
-                                        {sub}
-                                      </Badge>
-                                    </div>
-                                  ))}
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleSubstitution(game.id, 'away', '')}
-                                    className="h-6 w-6 p-0 self-start"
-                                  >
-                                    ✕
-                                  </Button>
-                                </div>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => openQuickSubstitution(game.id, 'away')}
-                                  className="h-6 px-2 text-xs"
-                                  disabled={!lineupsValid}
-                                >
-                                  <ArrowUpDown className="h-3 w-3 mr-1" />
-                                  Střídání
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="size-4 rounded-full bg-primary/20 grid place-items-center">
-                              <div className="size-2 rounded-full bg-primary"></div>
-                            </div>
-                            <Select 
-                              value={result?.homeScore?.toString() || ''} 
-                              onValueChange={(value) => {
-                                const homeScore = parseInt(value);
-                                const awayScore = result?.awayScore || 0;
-                                updateGameResult(game.id, homeScore, awayScore);
-                              }}
-                            >
-                              <SelectTrigger className="w-16 h-9 border border-slate-200 focus:border-primary">
-                                <SelectValue placeholder="0" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="0">0</SelectItem>
-                                <SelectItem value="1">1</SelectItem>
-                                {(game.type === 'double_cricket' || game.type === 'tiebreak_701') ? null : (
-                                  <SelectItem value="2">2</SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="size-4 rounded-full bg-accent/20 grid place-items-center">
-                              <div className="size-2 rounded-full bg-accent"></div>
-                            </div>
-                            <Select 
-                              value={result?.awayScore?.toString() || ''} 
-                              onValueChange={(value) => {
-                                const awayScore = parseInt(value);
-                                const homeScore = result?.homeScore || 0;
-                                updateGameResult(game.id, homeScore, awayScore);
-                              }}
-                            >
-                              <SelectTrigger className="w-16 h-9 border border-slate-200 focus:border-accent">
-                                <SelectValue placeholder="0" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="0">0</SelectItem>
-                                <SelectItem value="1">1</SelectItem>
-                                {(game.type === 'double_cricket' || game.type === 'tiebreak_701') ? null : (
-                                  <SelectItem value="2">2</SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {result ? (
-                            <Badge className={`font-bold px-2 py-1 ${
-                              result.winner === 'home' 
-                                ? 'bg-primary text-white' 
-                                : 'bg-accent text-white'
-                            }`}>
-                              {result.homeScore}:{result.awayScore}
-                            </Badge>
-                          ) : (
-                            <span className="text-slate-400 font-medium">-:-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-center">
-                            <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                              <div className="font-bold text-slate-800">
-                                {progressiveScore.home}:{progressiveScore.away}
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  
-                  {/* Summary Row */}
-                  <TableRow className="bg-gradient-to-r from-slate-100 to-slate-50 border-t-2 border-slate-300">
-                    <TableCell>
-                      <div className="size-8 rounded-lg bg-gradient-to-br from-primary to-accent grid place-items-center text-white font-black text-sm">
-                        Σ
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-black text-lg text-slate-900">CELKEM</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-slate-200 text-slate-700 font-bold">
-                        KONEČNÝ
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {/* Empty substitution column for summary */}
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-center">
-                        <div className="bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
-                          <div className="font-bold text-primary">
-                            {Object.values(gameResults).reduce((sum, result) => sum + (result?.homeScore || 0), 0)}
-                          </div>
-                          <div className="text-xs text-slate-600">legy</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-center">
-                        <div className="bg-accent/10 border border-accent/20 rounded-lg px-3 py-2">
-                          <div className="font-bold text-accent">
-                            {Object.values(gameResults).reduce((sum, result) => sum + (result?.awayScore || 0), 0)}
-                          </div>
-                          <div className="text-xs text-slate-600">legy</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {/* Empty - final score only in last column */}
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-center">
-                        <div className="bg-gradient-to-r from-primary to-accent rounded-lg px-6 py-3 min-w-24">
-                          <div className="font-black text-white text-xl whitespace-nowrap">
-                            {homeWins} : {awayWins}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-
-              <div className="flex gap-4 mt-6">
-                <Button 
-                  onClick={editLineups}
-                  variant="outline"
-                  className="rounded-xl border-slate-300 text-slate-600 hover:bg-slate-100 font-bold"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Upravit sestavy
-                </Button>
-                <Button 
-                  onClick={saveMatch}
-                  disabled={saving || completedGames === 0}
-                  className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold flex-1"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? 'Ukládám...' : 'Uložit průběh'}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="rounded-xl border-accent text-accent hover:bg-accent hover:text-white font-bold"
-                  disabled={completedGames < 16}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Export PDF
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Statistics Tab */}
-        <TabsContent value="stats">
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Home Team Stats */}
-            <Card className="rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-white shadow-sm border p-1">
-                    <TeamLogo teamName={match.homeTeam.name} className="w-full h-full object-contain" />
-                  </div>
-                  Statistiky - {match.homeTeam.name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {['D1', 'D2', 'D3', 'D4', 'D5', 'D6'].filter(pos => homeLineup[pos] && homeLineup[pos] !== 'none').map(pos => {
-                    const playerId = homeLineup[pos];
-                    const playerName = match.homeTeam.players?.find((p: any) => p.id === playerId)?.name || pos;
-                    
-                    return (
-                      <div key={pos} className="bg-slate-50 rounded-xl p-4">
-                        <h4 className="font-bold text-slate-900 mb-3">{playerName} ({pos})</h4>
-                        <div className="grid grid-cols-4 gap-2">
-                          {['95+', '133+', '170+', 'Asfalt'].map(stat => (
-                            <div key={stat} className="text-center">
-                              <div className="text-xs font-semibold text-slate-600 mb-1">{stat}</div>
-                              <Input
-                                className="h-8 text-center text-sm"
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                value={playerStats[playerId]?.[stat === 'Asfalt' ? 'Asfalt' : stat.replace('+', '')] || ''}
-                                onChange={(e) => updatePlayerStat(playerId, stat === 'Asfalt' ? 'Asfalt' : stat.replace('+', ''), parseInt(e.target.value) || 0)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                        <div className="grid grid-cols-5 gap-2 mt-3">
-                          {['CO3', 'CO4', 'CO5', 'CO6', 'Nejvyšší zavření'].map(stat => (
-                            <div key={stat} className="text-center">
-                              <div className="text-xs font-semibold text-slate-600 mb-1">{stat === 'Nejvyšší zavření' ? 'Max CO' : stat}</div>
-                              <Input
-                                className="h-8 text-center text-sm"
-                                type="number"
-                                min="0"
-                                max={stat === 'Nejvyšší zavření' ? '170' : undefined}
-                                placeholder="0"
-                                value={playerStats[playerId]?.[stat === 'Nejvyšší zavření' ? 'highestCheckout' : stat] || ''}
-                                onChange={(e) => updatePlayerStat(playerId, stat === 'Nejvyšší zavření' ? 'highestCheckout' : stat, parseInt(e.target.value) || 0)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Away Team Stats */}
-            <Card className="rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-white shadow-sm border p-1">
-                    <TeamLogo teamName={match.awayTeam.name} className="w-full h-full object-contain" />
-                  </div>
-                  Statistiky - {match.awayTeam.name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].filter(pos => awayLineup[pos] && awayLineup[pos] !== 'none').map(pos => {
-                    const playerId = awayLineup[pos];
-                    const playerName = match.awayTeam.players?.find((p: any) => p.id === playerId)?.name || pos;
-                    
-                    return (
-                      <div key={pos} className="bg-slate-50 rounded-xl p-4">
-                        <h4 className="font-bold text-slate-900 mb-3">{playerName} ({pos})</h4>
-                        <div className="grid grid-cols-4 gap-2">
-                          {['95+', '133+', '170+', 'Asfalt'].map(stat => (
-                            <div key={stat} className="text-center">
-                              <div className="text-xs font-semibold text-slate-600 mb-1">{stat}</div>
-                              <Input
-                                className="h-8 text-center text-sm"
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                value={playerStats[playerId]?.[stat === 'Asfalt' ? 'Asfalt' : stat.replace('+', '')] || ''}
-                                onChange={(e) => updatePlayerStat(playerId, stat === 'Asfalt' ? 'Asfalt' : stat.replace('+', ''), parseInt(e.target.value) || 0)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                        <div className="grid grid-cols-5 gap-2 mt-3">
-                          {['CO3', 'CO4', 'CO5', 'CO6', 'Nejvyšší zavření'].map(stat => (
-                            <div key={stat} className="text-center">
-                              <div className="text-xs font-semibold text-slate-600 mb-1">{stat === 'Nejvyšší zavření' ? 'Max CO' : stat}</div>
-                              <Input
-                                className="h-8 text-center text-sm"
-                                type="number"
-                                min="0"
-                                max={stat === 'Nejvyšší zavření' ? '170' : undefined}
-                                placeholder="0"
-                                value={playerStats[playerId]?.[stat === 'Nejvyšší zavření' ? 'highestCheckout' : stat] || ''}
-                                onChange={(e) => updatePlayerStat(playerId, stat === 'Nejvyšší zavření' ? 'highestCheckout' : stat, parseInt(e.target.value) || 0)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="flex gap-4 justify-center mt-6">
-            <Button 
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-white px-3 py-2">
+            <div className="mr-auto flex items-baseline gap-3 text-sm">
+              <span className="label-muted">Celkem</span>
+              <span className="font-bold text-slate-900 tnum">{homeWins}:{awayWins}</span>
+              <span className="text-xs text-muted-foreground tnum">legy {homeLegs}:{awayLegs}</span>
+            </div>
+            <Button
               onClick={editLineups}
               variant="outline"
-              className="rounded-xl border-slate-300 text-slate-600 hover:bg-slate-100 font-bold"
+              className="h-9 rounded-md font-semibold"
             >
-              <Edit className="h-4 w-4 mr-2" />
+              <Edit className="mr-1.5 h-4 w-4" />
               Upravit sestavy
             </Button>
-            <Button 
+            <Button
+              variant="outline"
+              className="h-9 rounded-md font-semibold"
+              disabled={completedGames < 16}
+            >
+              <FileText className="mr-1.5 h-4 w-4" />
+              Export PDF
+            </Button>
+            <Button
               onClick={saveMatch}
               disabled={saving || completedGames === 0}
-              className="rounded-xl bg-primary hover:bg-[#9F1239] text-white font-bold"
+              className="h-9 rounded-md bg-primary font-semibold text-white hover:bg-[#9F1239]"
             >
-              <Save className="h-4 w-4 mr-2" />
+              {saveIcon}
+              {saving ? 'Ukládám...' : 'Uložit průběh'}
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* Události hráčů (95+, 133+, 170, zavření) */}
+        <TabsContent value="stats" className="mt-0 space-y-3">
+          <div className="grid gap-3 lg:grid-cols-2">
+            {renderStatsPanel('home')}
+            {renderStatsPanel('away')}
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              onClick={editLineups}
+              variant="outline"
+              className="h-9 rounded-md font-semibold"
+            >
+              <Edit className="mr-1.5 h-4 w-4" />
+              Upravit sestavy
+            </Button>
+            <Button
+              onClick={saveMatch}
+              disabled={saving || completedGames === 0}
+              className="h-9 rounded-md bg-primary font-semibold text-white hover:bg-[#9F1239]"
+            >
+              {saveIcon}
               {saving ? 'Ukládám...' : 'Uložit vše'}
             </Button>
           </div>
         </TabsContent>
       </Tabs>
 
-      {/* Improved Substitution Dialog */}
+      {/* Dialog střídání */}
       {substitutionData && (
         <ImprovedSubstitution
           open={showSubstitutionDialog}

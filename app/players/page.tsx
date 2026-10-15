@@ -2,25 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Target, Trophy, Users, Plus, Minus, Search, Filter, Home, Construction } from "lucide-react";
+import { Loader2, Search, X, Construction } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from '@/components/layout/page-header';
-import { getTeamLogo, getTeamGradient } from '@/lib/team-logos';
+import { getTeamLogo } from '@/lib/team-logos';
+import { TeamMark } from '@/components/team-mark';
 
 export default function Players() {
   const { data: session, status } = useSession();
-  const [expandedSections, setExpandedSections] = useState({
-    matches: false,
-    legs: false,
-    throws: false,
-    checkouts: false
-  });
   const [players, setPlayers] = useState<any[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,20 +97,14 @@ export default function Players() {
     setFilteredPlayers(filtered);
   }, [searchQuery, selectedTeam, players]);
 
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section as keyof typeof prev]
-    }));
-  };
-
 
   if (loading || status === "loading") {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Target className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-slate-600">Načítám hráče...</p>
+      <div>
+        <PageHeader title="Hráči" />
+        <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          Načítám hráče…
         </div>
       </div>
     );
@@ -159,385 +146,163 @@ export default function Players() {
     );
   }
 
+  // Pořadí bereme z celé ligy, ne z vyfiltrovaného výpisu — po výběru týmu
+  // má hráč pořád své ligové umístění, ne "1. v týmu".
+  const rankOf = new Map(players.map((p: any, i: number) => [p.id, i + 1]));
+  // Bez odehraných singlů je index všude nula — medailové pruhy by nic neznamenaly.
+  const notStarted = players.every((p: any) => !(p.stats?.[0]?.singlesPlayed > 0));
+  const filtersActive = searchQuery !== '' || selectedTeam !== 'all';
+
   return (
-    <div className="space-y-4">
+    <div>
       <PageHeader
         title="Hráči"
-        subtitle={`${filteredPlayers.length} z ${players.length} hráčů`}
-      />
-
-      {/* Filters */}
-      <div className="rounded-lg border border-border bg-white p-3">
-        <div className="flex flex-col gap-2 md:flex-row">
-          {/* Search by name */}
-          <div className="flex-1">
+        subtitle={filtersActive ? `${filteredPlayers.length} z ${players.length}` : `${players.length} hráčů`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Hledat hráče podle jména nebo přezdívky..."
+                placeholder="Hledat hráče"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 rounded-md pl-9"
+                className="h-8 w-40 rounded-md pl-8 text-sm sm:w-52"
               />
             </div>
-          </div>
-
-          {/* Filter by team */}
-          <div className="w-full md:w-64">
             <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-              <SelectTrigger className="h-8 rounded-md">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  <SelectValue placeholder="Vybrat tým" />
-                </div>
+              <SelectTrigger className="h-8 w-40 rounded-md text-sm sm:w-48">
+                <SelectValue placeholder="Tým" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Všechny týmy</SelectItem>
                 {teams.map((team) => (
                   <SelectItem key={team.id} value={team.id}>
-                    <div className="flex items-center gap-2">
-                      <div className="size-5 rounded bg-white shadow-sm border border-slate-200 p-0.5">
-                        <img
-                          src={getTeamLogo(team.name)}
-                          alt={team.name}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      {team.name}
-                    </div>
+                    <TeamMark name={team.name} shortName={team.shortName} logoUrl={getTeamLogo(team.name)} />
+                    {team.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {filtersActive && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedTeam('all');
+                }}
+                className="h-8 rounded-md px-2 text-xs text-muted-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+                Zrušit
+              </Button>
+            )}
           </div>
+        }
+      />
 
-          {/* Clear filters button */}
-          {(searchQuery || selectedTeam !== 'all') && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedTeam('all');
-              }}
-              className="h-8 rounded-md text-xs"
-            >
-              Vymazat filtry
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Player Statistics */}
-      <Card className="overflow-hidden rounded-lg border border-border bg-white p-0">
-        <CardHeader className="border-b border-border bg-muted px-3 py-2">
-          <CardTitle className="flex items-center gap-1.5 text-sm">
-            <Target className="h-4 w-4 text-primary" />
-            Kompletní statistiky
-          </CardTitle>
-          <CardDescription className="text-[11px]">
-            Klikem na sloupec seřadíte podle dané statistiky
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50 hover:bg-slate-50 border-gray-100">
-                  <TableHead className="text-center py-2 w-16 sticky left-0 bg-slate-50 z-20">#</TableHead>
-                  <TableHead className="py-2 w-64 sticky left-16 bg-slate-50 z-20 border-r-2 border-slate-200">HRÁČ</TableHead>
-                  
-                  {/* Celkem */}
-                  <TableHead className="text-center py-2 w-32 cursor-pointer hover:text-primary transition-colors">
-                    <div className="flex items-center justify-center gap-2">
-                      CELKEM
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="size-6 p-0 hover:bg-primary hover:text-white transition-all"
-                        onClick={() => toggleSection('matches')}
-                      >
-                        {expandedSections.matches ? <Minus className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                      </Button>
-                    </div>
-                  </TableHead>
-                  
-                  {expandedSections.matches && (
-                    <>
-                      <TableHead className="text-center py-2 w-24 cursor-pointer hover:text-primary transition-colors">
-                        ODEHRÁNO
-                      </TableHead>
-                      <TableHead className="text-center py-2 w-24 cursor-pointer hover:text-primary transition-colors">
-                        VYHRÁNO
-                      </TableHead>
-                    </>
-                  )}
-                  
-                  {/* Singly */}
-                  <TableHead className="text-center py-2 w-32 cursor-pointer hover:text-accent transition-colors border-l border-slate-300">
-                    <div className="flex items-center justify-center gap-2">
-                      SINGLY
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="size-6 p-0 hover:bg-primary hover:text-white transition-all"
-                        onClick={() => toggleSection('legs')}
-                      >
-                        {expandedSections.legs ? <Minus className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                      </Button>
-                    </div>
-                  </TableHead>
-                  
-                  {expandedSections.legs && (
-                    <>
-                      <TableHead className="text-center py-2 w-24 cursor-pointer hover:text-accent transition-colors">
-                        ODEHRÁNO
-                      </TableHead>
-                      <TableHead className="text-center py-2 w-24 cursor-pointer hover:text-accent transition-colors">
-                        VYHRÁNO
-                      </TableHead>
-                    </>
-                  )}
-                  
-                  {/* Náhozy */}
-                  <TableHead className="text-center py-2 w-32 cursor-pointer hover:text-slate-900 transition-colors border-l border-slate-300">
-                    <div className="flex items-center justify-center gap-2">
-                      NÁHOZY
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="size-6 p-0 hover:bg-primary hover:text-white transition-all"
-                        onClick={() => toggleSection('throws')}
-                      >
-                        {expandedSections.throws ? <Minus className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                      </Button>
-                    </div>
-                  </TableHead>
-                  
-                  {expandedSections.throws && (
-                    <>
-                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">95+</TableHead>
-                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">133+</TableHead>
-                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">170+</TableHead>
-                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">ASFALT</TableHead>
-                    </>
-                  )}
-                  
-                  {/* Checkouty */}
-                  <TableHead className="text-center py-2 w-32 cursor-pointer hover:text-slate-900 transition-colors border-l border-slate-300">
-                    <div className="flex items-center justify-center gap-2">
-                      CHECKOUTY
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="size-6 p-0 hover:bg-primary hover:text-white transition-all"
-                        onClick={() => toggleSection('checkouts')}
-                      >
-                        {expandedSections.checkouts ? <Minus className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                      </Button>
-                    </div>
-                  </TableHead>
-
-                  {expandedSections.checkouts && (
-                    <>
-                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO3</TableHead>
-                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO4</TableHead>
-                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO5</TableHead>
-                      <TableHead className="text-center py-2 w-20 cursor-pointer hover:text-slate-900 transition-colors">CO6</TableHead>
-                      <TableHead className="text-center py-2 w-28 cursor-pointer hover:text-slate-900 transition-colors border-l border-slate-300">NEJVYŠŠÍ ZAVŘENÍ</TableHead>
-                    </>
-                  )}
-
-                  {/* HSL Index */}
-                  <TableHead className="text-center py-2 w-32 border-l-2 border-primary bg-gradient-to-r from-rose-50 to-rose-50">
-                    <div className="flex items-center justify-center gap-2">
-                      <Trophy className="h-4 w-4 text-primary" />
-                      HSL INDEX
-                    </div>
-                  </TableHead>
-
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPlayers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={20} className="text-center py-16">
-                      <div className="text-center">
-                        <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">
-                          Žádní hráči nenalezeni
-                        </h3>
-                        <p className="text-muted-foreground">
-                          Zkuste upravit vyhledávací kritéria
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredPlayers.map((player: any, index: number) => {
-                  const playerStats = getPlayerStats(player);
-                  return (
-                  <TableRow
-                    key={player.id}
-                    className={`border-gray-100 transition-all duration-200 hover:bg-rose-50/60 hover:shadow-sm ${
-                      index === 0 ? 'bg-gradient-to-r from-rose-50/50 to-transparent' :
-                      index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                    }`}
-                  >
-                    <TableCell
-                      className={`text-center py-8 sticky left-0 z-20 ${
-                        index === 0 ? 'bg-gradient-to-r from-rose-50 to-white' :
-                        index % 2 === 0 ? 'bg-white' : 'bg-slate-50'
-                      }`}
-                      style={{ boxShadow: '2px 0 5px -2px rgba(0,0,0,0.1)' }}
-                    >
-                      <div className={`size-10 rounded-full mx-auto font-black text-lg grid place-items-center ${
-                        index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white shadow-lg' :
-                        index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white shadow-md' :
-                        index === 2 ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white shadow-md' :
-                        'bg-gradient-to-br from-slate-200 to-slate-300 text-slate-700'
-                      }`}>
-                        {index + 1}
-                      </div>
+      <div className="overflow-x-auto rounded-lg border border-border bg-white">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border bg-muted hover:bg-muted">
+              <TableHead className="w-10 text-center">#</TableHead>
+              <TableHead>Hráč</TableHead>
+              <TableHead className="w-14 text-center text-slate-900" title="HŠL index">Index</TableHead>
+              <TableHead className="hidden w-11 text-center md:table-cell" title="Odehrané singly">S</TableHead>
+              <TableHead className="hidden w-11 text-center md:table-cell" title="Vyhrané singly">SV</TableHead>
+              <TableHead className="w-12 text-center" title="Úspěšnost v singlech">%</TableHead>
+              <TableHead className="hidden w-14 text-center lg:table-cell" title="Všechny hry: vyhrané/odehrané">Hry</TableHead>
+              <TableHead className="hidden w-11 text-center md:table-cell" title="Náhozy 95+">95+</TableHead>
+              <TableHead className="hidden w-11 text-center md:table-cell" title="Náhozy 133+">133+</TableHead>
+              <TableHead className="hidden w-11 text-center md:table-cell" title="Náhozy 170+">170</TableHead>
+              <TableHead className="hidden w-11 text-center lg:table-cell" title="Asfalt">A</TableHead>
+              <TableHead className="w-11 text-center" title="Zavření na 3–6 šipek (CO3–CO6)">CO</TableHead>
+              <TableHead className="hidden w-12 text-center lg:table-cell" title="Nejvyšší zavření">NZ</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredPlayers.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={13} className="py-3 text-center text-sm text-muted-foreground">
+                  Žádný hráč neodpovídá filtru.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredPlayers.map((player: any) => {
+                const st = getPlayerStats(player);
+                const rank = rankOf.get(player.id) ?? 0;
+                const checkouts = st.CO3 + st.CO4 + st.CO5 + st.CO6;
+                return (
+                  <TableRow key={player.id} className="border-border hover:bg-rose-50/50">
+                    <TableCell className="text-center">
+                      <span className="tnum text-sm font-semibold text-slate-500">{notStarted ? '–' : rank}</span>
                     </TableCell>
 
-                    <TableCell
-                      className={`py-8 sticky left-16 z-20 border-r-2 border-slate-200 ${
-                        index === 0 ? 'bg-gradient-to-r from-rose-50 to-white' :
-                        index % 2 === 0 ? 'bg-white' : 'bg-slate-50'
-                      }`}
-                      style={{ boxShadow: '4px 0 8px -3px rgba(0,0,0,0.1)' }}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="size-12 rounded-xl bg-white shadow-sm border border-slate-200 p-1 shrink-0 overflow-hidden">
-                          <img 
-                            src={getTeamLogo(player.team?.name || '')}
-                            alt={player.team?.name || ''}
-                            className="w-full h-full object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const fallback = target.parentElement;
-                              if (fallback) {
-                                fallback.className = `size-12 rounded-xl bg-gradient-to-br ${getTeamGradient(player.team?.name || '')} grid place-items-center shrink-0 text-white shadow-sm`;
-                                fallback.innerHTML = `<span class="font-black text-sm">${player.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}</span>`;
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          {/* Detail hráče byl zrušen — jméno zůstává jako text */}
-                          <div className="font-black text-lg text-slate-900 leading-tight">
-                            {player.name}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
+                    <TableCell className="max-w-0 min-w-40">
+                      <div className="flex items-center gap-2">
+                        {/* Medailová pozice: tenký pruh jako v tabulce týmů */}
+                        <span
+                          aria-hidden
+                          className={`h-5 w-0.5 shrink-0 rounded-full ${
+                            notStarted ? 'bg-transparent'
+                            : rank === 1 ? 'bg-amber-400'
+                            : rank === 2 ? 'bg-slate-300'
+                            : rank === 3 ? 'bg-amber-700/60'
+                            : 'bg-transparent'
+                          }`}
+                        />
+                        <TeamMark
+                          name={player.team?.name || '?'}
+                          shortName={player.team?.shortName}
+                          logoUrl={getTeamLogo(player.team?.name || '')}
+                        />
+                        {/* Detail hráče neexistuje — jméno zůstává jako text */}
+                        <div className="min-w-0 leading-tight">
+                          <div className="truncate font-medium text-slate-900">{player.name}</div>
+                          <div className="truncate text-xs text-muted-foreground">
                             {player.team?.name || 'Bez týmu'}
                           </div>
                         </div>
                       </div>
                     </TableCell>
-                    
-                    {/* Celkem % */}
-                    <TableCell className="text-center">
-                      <div className="font-black text-xl text-slate-900">
-                        {playerStats.totalPlayed > 0 ? Math.round((playerStats.totalWon / playerStats.totalPlayed) * 100) : 0}%
-                      </div>
-                    </TableCell>
-                    
-                    {expandedSections.matches && (
-                      <>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.totalPlayed}</div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.totalWon}</div>
-                        </TableCell>
-                      </>
-                    )}
-                    
-                    {/* Singly % */}
-                    <TableCell className="text-center">
-                      <div className="font-black text-xl text-slate-900">
-                        {playerStats.singlesPlayed > 0 ? Math.round((playerStats.singlesWon / playerStats.singlesPlayed) * 100) : 0}%
-                      </div>
-                    </TableCell>
-                    
-                    {expandedSections.legs && (
-                      <>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.singlesPlayed}</div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.singlesWon}</div>
-                        </TableCell>
-                      </>
-                    )}
-                    
-                    {/* Náhozy */}
-                    <TableCell className="text-center">
-                      <div className="font-black text-xl text-slate-900">{playerStats.S95 + playerStats.S133 + playerStats.S170}</div>
-                    </TableCell>
-                    
-                    {expandedSections.throws && (
-                      <>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.S95}</div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.S133}</div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.S170}</div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-red-600 text-lg">{playerStats.Asfalt}</div>
-                        </TableCell>
-                      </>
-                    )}
-                    
-                    {/* Checkouty */}
-                    <TableCell className="text-center">
-                      <div className="font-black text-xl text-slate-900">{playerStats.CO3 + playerStats.CO4 + playerStats.CO5 + playerStats.CO6}</div>
-                    </TableCell>
 
-                    {expandedSections.checkouts && (
-                      <>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.CO3}</div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.CO4}</div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.CO5}</div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="font-bold text-slate-600 text-lg">{playerStats.CO6}</div>
-                        </TableCell>
-                        <TableCell className="text-center border-l border-slate-300">
-                          <div className="font-black text-xl text-emerald-700">
-                            {playerStats.highestCheckout > 0 ? playerStats.highestCheckout : '-'}
-                          </div>
-                        </TableCell>
-                      </>
-                    )}
-
-                    {/* HSL Index */}
-                    <TableCell className="text-center border-l-2 border-primary bg-gradient-to-r from-rose-50/50 to-transparent">
-                      <div className="font-black text-2xl text-primary">
-                        {playerStats.hslIndex.toFixed(1)}
-                      </div>
+                    <TableCell className="tnum text-center text-base font-bold text-slate-900">
+                      {st.hslIndex.toFixed(1)}
                     </TableCell>
-
+                    <TableCell className="tnum hidden text-center text-slate-600 md:table-cell">{st.singlesPlayed}</TableCell>
+                    <TableCell className="tnum hidden text-center text-slate-600 md:table-cell">{st.singlesWon}</TableCell>
+                    <TableCell className="tnum text-center font-medium text-slate-700">
+                      {st.singlesPlayed > 0 ? `${Math.round((st.singlesWon / st.singlesPlayed) * 100)}` : '–'}
+                    </TableCell>
+                    <TableCell className="tnum hidden text-center text-slate-600 lg:table-cell">
+                      {st.totalPlayed > 0 ? `${st.totalWon}/${st.totalPlayed}` : '–'}
+                    </TableCell>
+                    <TableCell className="tnum hidden text-center text-slate-600 md:table-cell">{st.S95}</TableCell>
+                    <TableCell className="tnum hidden text-center text-slate-600 md:table-cell">{st.S133}</TableCell>
+                    <TableCell className="tnum hidden text-center text-slate-600 md:table-cell">{st.S170}</TableCell>
+                    <TableCell className="tnum hidden text-center text-slate-600 lg:table-cell">{st.Asfalt}</TableCell>
+                    <TableCell
+                      className="tnum text-center text-slate-600"
+                      title={`CO3 ${st.CO3} · CO4 ${st.CO4} · CO5 ${st.CO5} · CO6 ${st.CO6}`}
+                    >
+                      {checkouts}
+                    </TableCell>
+                    <TableCell className="tnum hidden text-center text-slate-600 lg:table-cell">
+                      {st.highestCheckout > 0 ? st.highestCheckout : '–'}
+                    </TableCell>
                   </TableRow>
-                  );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        Index – HŠL index · S/SV – singly odehrané a vyhrané · % – úspěšnost v singlech ·
+        95+/133+/170 – vysoké náhozy · CO – zavření na 3–6 šipek (rozpis po najetí myší)
+        · NZ – nejvyšší zavření · A – asfalt.
+      </p>
     </div>
   );
 }
